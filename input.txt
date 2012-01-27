@@ -1,0 +1,6 @@
+[[cmaj_4_1:4_100_1, _1] # 8, [cmaj_4_3_100_1, _1] # 8]
+
+p = Pattern(
+		Pattern( Note("cmaj", Range(4, 5), 1, 100, 1), Rest(1), 8 ),
+		Pattern( Note("cmaj", 4, 1, 100, 1), Rest(1), 8 )
+	)
