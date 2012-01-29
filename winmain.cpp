@@ -7,6 +7,7 @@
 #include <tchar.h>
 #include "minihost.h"
 #include "luainc.h"
+#include "music.h"
 
 // Global variables
 
@@ -21,6 +22,7 @@ HINSTANCE hInst;
 // Forward declarations of functions included in this code module:
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
+Track track;
 
 int WINAPI WinMain(HINSTANCE hInstance,
                    HINSTANCE hPrevInstance,
@@ -106,22 +108,38 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	int ret = yyparse();
 	is.close();*/
 
-	lua_State* luaState_ = luaL_newstate();
+	//lua_State* luaState_ = luaL_newstate();
 
 	// start the audio after everything has been initialized
 	StartAudio();
 
-	/*for (int i=0; i<100; i++)
+	NoteOnEvent myNoteOn(CMAJ, 4, 1, 100, 4);
+	NoteOnEvent myNoteOn2(CMAJ, 4, 5, 100, 4);
+	RestEvent myRest(4);
+	Pattern myPattern(4);
+	myPattern.Add(&myNoteOn);
+	myPattern.Add(&myRest);
+	myPattern.Add(&myNoteOn2);
+	myPattern.Add(&myRest);
+	Track myTrack;
+	myTrack.AddPattern(myPattern, BAR);
+
+	cout << "Test" << endl;
+
+	vector<Event> mySongEvents;
+	vector<float> mySongOffsets;
+ 	for (int i=0; i<1000; i++)
 	{
-		songEvents.clear();
-		songOffsets.clear();
-		song.Update(512, songEvents, songOffsets);
-		cout << endl << "Events: " << songEvents.size() << endl;
-		for (int j=0; j<songEvents.size(); j++) {
-			cout << "offset: " << songOffsets[j] << endl;
-			songEvents[j].Print();
+		cout << "Track Update" << endl;
+		myTrack.Update(0, 64, mySongEvents, mySongOffsets);
+		for (int j=0; j<mySongEvents.size(); j++) {
+			cout << "Offset: " << mySongOffsets[j] << " ";
+			mySongEvents[j].Print(cout);
+			cout << endl;
 		}
-	}*/
+		mySongEvents.clear();
+		mySongOffsets.clear();
+	}
 
     // Main message loop:
     MSG msg;

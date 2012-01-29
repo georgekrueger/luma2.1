@@ -1,1 +1,34 @@
-﻿  minihost.vcxproj -> C:\Documents and Settings\George\My Documents\Copy of luma2\build\.\Debug\minihost.exe
+﻿  winmain.cpp
+c:\documents and settings\george\my documents\vstsdk2.4\pluginterfaces\vst2.x\aeffect.h(296): warning C4996: 'strncpy': This function or variable may be unsafe. Consider using strncpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          c:\program files\microsoft visual studio 10.0\vc\include\string.h(188) : see declaration of 'strncpy'
+c:\documents and settings\george\my documents\vstsdk2.4\pluginterfaces\vst2.x\aeffect.h(306): warning C4996: 'strncat': This function or variable may be unsafe. Consider using strncat_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          c:\program files\microsoft visual studio 10.0\vc\include\string.h(175) : see declaration of 'strncat'
+c:\documents and settings\george\my documents\luma2.1\music.h(109): warning C4244: 'return' : conversion from 'unsigned long' to 'short', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\music.h(110): warning C4244: 'return' : conversion from 'float' to 'short', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\music.h(165): warning C4244: 'return' : conversion from 'float' to 'short', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\music.h(212): warning C4018: '>' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\music.h(265): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\music.h(284): warning C4244: 'initializing' : conversion from 'float' to 'unsigned long', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\music.h(287): warning C4244: '=' : conversion from 'unsigned long' to 'float', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\music.h(307): warning C4244: 'initializing' : conversion from 'float' to 'unsigned long', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\music.h(310): warning C4244: '=' : conversion from 'unsigned long' to 'float', possible loss of data
+c:\program files\microsoft visual studio 10.0\vc\include\vector(869): error C2259: 'Event' : cannot instantiate abstract class
+          due to following members:
+          'Event *Event::Copy(void) const' : is abstract
+          c:\documents and settings\george\my documents\luma2.1\music.h(94) : see declaration of 'Event::Copy'
+          c:\documents and settings\george\my documents\luma2.1\music.h(328) : see reference to class template instantiation 'std::vector<_Ty>' being compiled
+          with
+          [
+              _Ty=Event
+          ]
+c:\documents and settings\george\my documents\luma2.1\minihost.h(57): warning C4244: '=' : conversion from 'float' to 'VstInt32', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\minihost.h(81): warning C4244: '=' : conversion from 'float' to 'VstInt32', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\minihost.h(116): warning C4244: 'initializing' : conversion from 'const double' to 'float', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\minihost.h(133): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\minihost.h(135): warning C4244: 'initializing' : conversion from 'const double' to 'int', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\minihost.h(136): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\minihost.h(141): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\minihost.h(143): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\minihost.h(160): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\minihost.h(170): warning C4244: 'initializing' : conversion from 'const double' to 'int', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(135): warning C4018: '<' : signed/unsigned mismatch

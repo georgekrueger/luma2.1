@@ -8,28 +8,51 @@
 using namespace std;
 
 float BPM = 200;
+float BEAT_LENGTH = 1 / BPM * 60000;
 
 ///////////////////////////
 // Scales
 ///////////////////////////
-typedef enum
+enum Scale
 {
 	CMAJ,
 	CMIN,
 	NO_SCALE,
-} Scale;
+};
+
+enum PatternQuantize
+{
+	BEAT,
+	BAR
+};
+
+enum EventType
+{
+	NOTE_ON,
+	NOTE_OFF,
+	REST,
+	NONE
+};
+const unsigned short NumEventTypes = NONE;
+
+const char* EventTypeNames[NumEventTypes] =
+{
+	"NOTE_ON",
+	"NOTE_OFF",
+	"REST",
+};
 
 const int NumScales = NO_SCALE;
 
 struct ScaleInfo
 {
-	const char* Name;
+	char const * const Name;
 	short startMidiPitch;
 	short intervals[12];
 	short numIntervals;
 };
 
-ScaleInfo scaleInfo[NumScales] = 
+const ScaleInfo scaleInfo[NumScales] = 
 {
 	{ "cmaj", 0, { 0, 2, 4, 5, 7, 9, 11 }, 7 },
 	{ "cmin", 0, { 0, 2, 3, 5, 7, 9, 10 }, 7 },
@@ -51,47 +74,56 @@ unsigned short GetMidiPitch(Scale scale, int octave, int degree)
 	return midiPitch;
 }
 
-class Note
+float BeatsToMilliseconds(unsigned long beats)
+{
+	return (BEAT_LENGTH * beats);
+}
+
+class Event
 {
 public:
-	Note(Scale scale, int octave, int degree, short velocity, int length) :
-		scale_(scale), octave_(octave), degree_(degree), velocity_(velocity), 
-		length_(length), isRest_(false), on_(true)
+	Event(EventType type) : type_(type){}
+	virtual ~Event() {}
+	virtual void Print(ostream &stream)
 	{
+		stream << "Type: " << EventTypeNames[type_];
 	}
 
-	Note(int length) : length_(length), isRest_(true) {}
-	Note() : on_(false) {}
-	~Note() {}
+	EventType GetType() { return type_; }
+
+	virtual Event* Copy() const = 0;
+
+private:
+	EventType type_;
+};
+
+class NoteOnEvent : public Event
+{
+public:
+	NoteOnEvent(Scale scale, int octave, int degree, short velocity, int length) 
+		: Event(NOTE_ON), scale_(scale), octave_(octave), degree_(degree), velocity_(velocity), 
+		length_(length)	{}
+
+	~NoteOnEvent() {}
 
 	short GetLength() { return length_; }
-	float GetLengthInMs()
-	{
-		float BeatLength = 1 / BPM * 60000;
-		return (BeatLength * length_);
-	}
+	short GetLengthInMs() { return BeatsToMilliseconds(length_); }
 	short GetPitch() { return GetMidiPitch(scale_, octave_, degree_); }
 	short GetVelocity() { return velocity_; }
-	
-	void SetRest(bool b) { isRest_ = b; }
-	bool IsRest() { return isRest_; }
+	Scale GetScale() { return scale_; }
+	int   GetOctave() { return octave_; }
+	int   GetDegree() { return degree_; }
 
-	void SetNoteOff() { on_ = false; }
-	bool IsNoteOff() { return !on_; }
-
-	void Print()
+	virtual void Print(ostream &stream)
 	{
-		if (isRest_) {
-			cout << "rest " << length_;
-		}
-		else {
-			if (on_)
-				cout << "Note ON ";
-			else
-				cout << "Note OFF ";
-			cout << GetScaleName(scale_) << " " << octave_ << " " << degree_
-				 << " " << velocity_ << " " << length_;
-		}
+		stream << "NoteOn: ";
+		stream << "Scale " << GetScaleName(scale_) << " Octave " << octave_ << " Degree " << degree_
+				<< " Vel " << velocity_ << " Length " << length_;
+	}
+
+	virtual Event* Copy() const
+	{
+		return new NoteOnEvent(*this);
 	}
 
 private:
@@ -99,66 +131,77 @@ private:
 	int octave_;
 	int degree_;
 	short velocity_;
-	int length_;
-	bool isRest_;
-	bool on_;
+	unsigned long length_;
 };
 
-class Event
+class NoteOffEvent : public Event
 {
 public:
-	enum Type
-	{ 
-		NOTE 
-	};
-	Type type;
-	Note* note;
+	NoteOffEvent(short pitch) : Event(NOTE_OFF), pitch_(pitch) {}
+	~NoteOffEvent() {}
 
-	Event::Event() : type(NOTE), note(NULL)
+	short GetPitch() { return pitch_; }
+
+	virtual void Print(ostream &stream)
 	{
+		stream << "NoteOff: ";
+		stream << "Pitch " << pitch_;
 	}
 
-	Event::Event(const Event &rhs) {
-		type = rhs.type;
-		note = new Note(*rhs.note);
-	}
-
-	void Print()
+	virtual Event* Copy() const
 	{
-		switch(type)
-		{
-		case NOTE:
-			note->Print();	
-			break;
-		}
+		return new NoteOffEvent(*this);
 	}
+
+private:
+	short pitch_;
+};
+
+class RestEvent : public Event
+{
+public:
+	RestEvent(unsigned long length) : Event(REST), length_(length) {}
+	~RestEvent() {}
+	short GetLengthInMs() { return BeatsToMilliseconds(length_); }
+
+	virtual void Print(ostream &stream)
+	{
+		stream << "Rest: ";
+		stream << "Length " << length_;
+	}
+
+	virtual Event* Copy() const
+	{
+		return new RestEvent(*this);
+	}
+
+private:
+	unsigned long length_;
 };
 
 class Pattern
 {
 public:
-	Pattern() : repeatCount_(1) {}
-	~Pattern() {}
-
-public:
-	void Add(Note* n)
+	Pattern() : repeatCount_(1) 
 	{
-		Event e;
-		e.type = Event::NOTE;
-		e.note = n;
-		events_.push_back(e);
+		init();
+	}
+	Pattern(unsigned long repeatCount) : repeatCount_(repeatCount)
+	{
+		init();
 	}
 
-	void Add(Pattern* p)
+	~Pattern() 
 	{
-		int numEvents = p->GetNumEvents();
-		int repeat = p->GetRepeatCount();
-		for (int j=0; j<repeat; j++) {
-			for (int i=0; i<numEvents; i++) {
-				Event* e = p->GetEvent(i);
-				events_.push_back(*e);
-			}
+		for (unsigned long i=0; i<events_.size(); i++) {
+			delete events_[i];
 		}
+	}
+
+public:
+	void Add(const Event* e)
+	{
+		events_.push_back(e->Copy());
 	}
 
 	size_t GetNumEvents() { 
@@ -166,7 +209,8 @@ public:
 	}
 
 	Event* GetEvent(int i) {
-		return &events_[i];
+		if (i > events_.size()) return NULL;
+		return events_[i];
 	}
 	
 	void SetRepeatCount(int count) {
@@ -184,123 +228,121 @@ public:
 			if (i != 0) {
 				cout << ", ";
 			}
-			events_[i].Print();
+			events_[i]->Print(cout);
 		}
 		cout << "]";
 		if (repeatCount_ != 1) {
-			cout << " # " << repeatCount_;
+			cout << " RepeatCount: " << repeatCount_;
 		}
 	}
 
 private:
-	vector<Event> events_;
-	int repeatCount_;
+	void init()
+	{
+		events_.reserve(100);
+	}
+
+private:
+	vector<Event*> events_;
+	unsigned long repeatCount_;
 };
 
-class Song
+class Track
 {
 public:
-	Song() {}
+	Track() {}
 
-	void AddPattern(Pattern* p)
+	void AddPattern(const Pattern& p, PatternQuantize quantize)
 	{
-		SongPattern sp(p);
+		PatternInfo sp(p, quantize);
 		patterns_.push_back(sp);
 	}
 
-	void Update(float elapsedTime, vector<Event>& events, vector<float>& offsets)
+	void Update(float songTime, float elapsedTime, vector<Event*>& events, vector<float>& offsets)
 	{
-		// now go through the patterns and update
+		// iterate the patterns
 		size_t numPatterns = patterns_.size();
 		for (int i=0; i<numPatterns; i++) {
-			SongPattern* sp = &patterns_[i];
+			PatternInfo& pat = patterns_[i];
 			float timeUsed = 0;
 			while (timeUsed < elapsedTime) {
 
 				float timeUsedThisIteration = 0;
 
-				if (sp->pattern_->GetRepeatCount() > 0)
+				if (pat.pattern.GetRepeatCount() > 0)
 				{
-					if (sp->pos_ >= sp->pattern_->GetNumEvents()) {
-						sp->pattern_->SetRepeatCount(sp->pattern_->GetRepeatCount() - 1);
-						sp->pos_ = 0;
+					if (pat.pos >= pat.pattern.GetNumEvents()) {
+						pat.pattern.SetRepeatCount(pat.pattern.GetRepeatCount() - 1);
+						pat.pos = 0;
 						continue;
 					}
 
-					// if there is left over time from an already encountered rest,
-					// then consume it.
-					if (sp->leftover_ > 0) 
+					// if there is left over time from a previously encountered rest, then consume it.
+					if (pat.leftover > 0) 
 					{
-						if (timeUsed + sp->leftover_ > elapsedTime) {
+						if (timeUsed + pat.leftover > elapsedTime) {
 							unsigned long timeLeftInFrame = elapsedTime - timeUsed;
-							sp->leftover_ -= timeLeftInFrame;
+							pat.leftover -= timeLeftInFrame;
 							timeUsed = elapsedTime;
 							timeUsedThisIteration = timeLeftInFrame;
 						}
 						else {
-							timeUsed += sp->leftover_;
-							timeUsedThisIteration = sp->leftover_;
-							sp->leftover_ = 0;
-							sp->pos_++;
+							timeUsed += pat.leftover;
+							timeUsedThisIteration = pat.leftover;
+							pat.leftover = 0;
+							pat.pos++;
 						}
 					}
 					else
 					{
-						Event* e = sp->pattern_->GetEvent(sp->pos_);
-						switch(e->type) 
+						Event* e = pat.pattern.GetEvent(pat.pos);
+						
+						if (e->GetType() == REST)
 						{
-							case Event::NOTE:
-							{
-								Note* note = e->note;
-								if (e->note->IsRest())
-								{
-									// rest event
-									float noteLength = note->GetLengthInMs();
-									if (timeUsed + noteLength > elapsedTime) {
-										unsigned long timeLeftInFrame = elapsedTime - timeUsed;
-										sp->leftover_ = noteLength - timeLeftInFrame;
-										timeUsed = elapsedTime;
-										timeUsedThisIteration = timeLeftInFrame;
-									}
-									else {
-										timeUsed += noteLength;
-										timeUsedThisIteration = noteLength;
-										sp->pos_++;
-									}
-								}
-								else {
-									// note on event
-									map<short, ActiveNote>::iterator activeNoteIter = activeNotes_.find(note->GetPitch());
-									// search for an active note at this pitch
-									if (activeNoteIter != activeNotes_.end()) {
-										// add note off event to event list
-										Event noteOffEvent;
-										noteOffEvent.type = Event::NOTE;
-										noteOffEvent.note = new Note(*activeNoteIter->second.note);
-										noteOffEvent.note->SetNoteOff();
-										events.push_back(noteOffEvent);
-										offsets.push_back(timeUsed-1); // make sure the note off event is before the note on for the same pitch
+							RestEvent* restEvent = static_cast<RestEvent*>(e);
 
-										// active note at this pitch already exists, so replace 
-										// that active note with this one
-										ActiveNote& activeNote = activeNoteIter->second;
-										activeNote.note = note;
-										activeNote.timeLeft = note->GetLengthInMs();
-									}
-									else {
-										// create a new entry in the active note list
-										ActiveNote active;
-										active.note = note;
-										active.timeLeft = note->GetLengthInMs();
-										activeNotes_[note->GetPitch()] = active;
-									}
-									events.push_back(*e);
-									offsets.push_back(timeUsed);
-									sp->pos_++;
-								}
+							// rest event
+							float noteLength = restEvent->GetLengthInMs();
+							if (timeUsed + noteLength > elapsedTime) {
+								unsigned long timeLeftInFrame = elapsedTime - timeUsed;
+								pat.leftover = noteLength - timeLeftInFrame;
+								timeUsed = elapsedTime;
+								timeUsedThisIteration = timeLeftInFrame;
 							}
-							default:
-								break;
+							else {
+								timeUsed += noteLength;
+								timeUsedThisIteration = noteLength;
+								pat.pos++;
+							}
+						}
+						else if (e->GetType() == NOTE_ON) 
+						{
+							NoteOnEvent* noteOnEvent = static_cast<NoteOnEvent*>(e);
+
+							// note on event
+							map<short, ActiveNote>::iterator activeNoteIter = activeNotes_.find(noteOnEvent->GetPitch());
+							if (activeNoteIter != activeNotes_.end()) {
+								// if note is already on, turn it off
+								ActiveNote& activeNote = activeNoteIter->second;
+								NoteOffEvent noteOffEvent(activeNote.pitch);
+								events.push_back(noteOffEvent);
+								offsets.push_back(timeUsed); // make sure the note off event is before the note on for the same pitch
+
+								// active note at this pitch already exists, so replace 
+								// that active note with this one
+								activeNote.pitch = noteOnEvent->GetPitch();
+								activeNote.timeLeft = noteOnEvent->GetLengthInMs();
+							}
+							else {
+								// create a new entry in the active note list
+								ActiveNote active;
+								active.pitch = noteOnEvent->GetPitch();
+								active.timeLeft = noteOnEvent->GetLengthInMs();
+								activeNotes_[noteOnEvent->GetPitch()] = active;
+							}
+							events.push_back(*e);
+							offsets.push_back(timeUsed);
+							pat.pos++;
 						}
 					}
 				}
@@ -315,10 +357,7 @@ public:
 					ActiveNote* activeNote = &it->second;
 					if (timeUsedThisIteration > activeNote->timeLeft) {
 						// generate note off event
-						Event noteOffEvent;
-						noteOffEvent.type = Event::NOTE;
-						noteOffEvent.note = new Note(*it->second.note);
-						noteOffEvent.note->SetNoteOff();
+						NoteOffEvent noteOffEvent(activeNote->pitch);
 						events.push_back(noteOffEvent);
 						offsets.push_back(activeNote->timeLeft);
 
@@ -338,21 +377,47 @@ public:
 
 private:
 
-	class SongPattern
+	class PatternInfo
 	{
 	public:
-		SongPattern(Pattern* pattern) : pos_(0), leftover_(0), pattern_(pattern) {}
+		PatternInfo(const Pattern& pPattern, PatternQuantize pQuantize) 
+			: started(false), pos(0), leftover(0), pattern(pPattern), quantize(pQuantize) {}
 
-		unsigned int pos_;
-		float leftover_;
-		Pattern* pattern_;
+		bool started;
+		unsigned int pos;
+		float leftover;
+		PatternQuantize quantize;
+		Pattern pattern;
 	};
+
+	class EventList
+	{
+	public:
+		EventList()
+		{
+			events.reserve(1000);
+			for (int i=0; i<events.size(); i++) {
+				//events[i] = new 
+			}
+		}
+
+		~EventList()
+		{
+			for (int i=0; i<events.size(); i++) {
+				delete events[i];
+			}
+		}
+
+		vector<Event*> events;
+		vector<float>  offsets;
+	};
+
 	struct ActiveNote
 	{
-		Note* note;
+		int pitch;
 		float timeLeft;
 	};
-	vector<SongPattern> patterns_;
+	vector<PatternInfo> patterns_;
 	map<short, ActiveNote> activeNotes_;
 };
 

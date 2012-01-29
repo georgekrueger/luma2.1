@@ -28,7 +28,6 @@
 #include <vector>
 #include <string>
 
-Song song;
 struct PluginLoader;
 
 using namespace std;
@@ -45,6 +44,8 @@ bool audioStarted = false;
 PluginLoader* pluginLoader = NULL;
 
 VstMidiEvent globalEvent;
+
+extern Track track;
 
 static const unsigned int VST_MAX_OUTPUT_CHANNELS_SUPPORTED = 2;
 static float** vstOutputBuffer = NULL;
@@ -126,22 +127,48 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 	}
 
 	// Process events
-	song.Update(timeElapsedInMs, songEvents, songOffsets);
+	track.Update(0, timeElapsedInMs, songEvents, songOffsets);
+
+	// convert offsets to samples
+	for (int j=0; j<songEvents.size(); j++) {
+		// first convert offset to samples
+		int offsetInSamples = songOffsets[j] / 1000 * AUDIO_SAMPLE_RATE;
+		songOffsets[j] = offsetInSamples;
+	}
+
+	// check for note-off / note-on pairs at the same pitch and time.
+	// some vsts require that the note-on be atleast one sample after the note-off.
+	for (int j=0; j<songEvents.size(); j++) {
+		if (songEvents[j].GetType() == NOTE_OFF) {
+			if (j + 1 < songEvents.size() && songEvents[j+1].GetType() == NOTE_ON && songOffsets[j] == songOffsets[j+1]) {
+				NoteOnEvent* noteOnEvent = static_cast<NoteOnEvent*>(&songEvents[j]);
+				NoteOffEvent* noteOffEvent = static_cast<NoteOffEvent*>(&songEvents[j+1]);
+				if (noteOnEvent->GetPitch() == noteOffEvent->GetPitch()) {
+					if (songOffsets[j] > 0) {
+						// move the note-off back one sample
+						songOffsets[j] -= 1;
+					}
+					else {
+						// move the note-on forward one sample
+						songOffsets[j+1] += 1;
+					}
+				}
+			}
+		}
+	}
+
 	for (int j=0; j<songEvents.size(); j++) {
 		Event* e = &songEvents[j];
 		float offset = songOffsets[j];
-		Note* note = e->note;
-		int offsetInSamples = offset / 1000 * AUDIO_SAMPLE_RATE;
-		if (note->IsNoteOff()) {
-			cout << "Note off " << offset << " " << offsetInSamples << endl;
-			PlayNoteOff(effect, offsetInSamples, note->GetPitch());
+
+		if (e->GetType() == NOTE_OFF) {
+			NoteOffEvent* noteOffEvent = static_cast<NoteOffEvent*>(&songEvents[j+1]);
+			PlayNoteOff(effect, offset, noteOffEvent->GetPitch());
 		}
-		else {
-			cout << "Note on " << offset << " " << offsetInSamples << endl;
-			note->Print();
-			cout << endl;
-			int noteLengthInSamples = note->GetLengthInMs() / 1000 * AUDIO_SAMPLE_RATE;
-			PlayNoteOn(effect, offsetInSamples, note->GetPitch(), note->GetVelocity(), noteLengthInSamples);
+		else if (e->GetType() == NOTE_ON) {
+			NoteOnEvent* noteOnEvent = static_cast<NoteOnEvent*>(&songEvents[j]);
+			int noteLengthInSamples = noteOnEvent->GetLengthInMs() / 1000 * AUDIO_SAMPLE_RATE;
+			PlayNoteOn(effect, offset, noteOnEvent->GetPitch(), noteOnEvent->GetVelocity(), noteLengthInSamples);
 		}
 	}
 	songEvents.clear();
