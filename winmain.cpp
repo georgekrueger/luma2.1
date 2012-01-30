@@ -22,7 +22,7 @@ HINSTANCE hInst;
 // Forward declarations of functions included in this code module:
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
-Track track;
+Track gTrack;
 
 int WINAPI WinMain(HINSTANCE hInstance,
                    HINSTANCE hPrevInstance,
@@ -110,39 +110,38 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
 	//lua_State* luaState_ = luaL_newstate();
 
-	// start the audio after everything has been initialized
-	StartAudio();
-
-	Track myTrack;
 	
-	Pattern myPattern(4);
+	
+	Pattern myPattern(16);
 	Event noteOn;
 	Event rest;
 	rest.type = REST;
-	rest.restEvent.length = 4;
+	rest.restEvent.length = 1;
 	noteOn.type = NOTE_ON;
 	noteOn.noteOnEvent.pitch = GetMidiPitch(CMAJ, 4, 1);
 	noteOn.noteOnEvent.velocity = 100;
-	noteOn.noteOnEvent.length = 4;
+	noteOn.noteOnEvent.length = 2;
 	myPattern.Add(noteOn);
 	myPattern.Add(rest);
 	noteOn.noteOnEvent.pitch = GetMidiPitch(CMAJ, 4, 5);
 	myPattern.Add(noteOn);
 	myPattern.Add(rest);
 
-	myTrack.AddPattern(myPattern, BAR);
+	gTrack.AddPattern(myPattern, BAR);
 
-	myPattern.Clear();
+	/*myPattern.Clear();
 	noteOn.noteOnEvent.pitch = GetMidiPitch(CMAJ, 3, 1);
 	myPattern.Add(noteOn);
 	myPattern.Add(rest);
 	noteOn.noteOnEvent.pitch = GetMidiPitch(CMAJ, 3, 5);
 	myPattern.Add(noteOn);
 	myPattern.Add(rest);
-	
-	myTrack.AddPattern(myPattern, BAR);
+	gTrack.AddPattern(myPattern, BAR);*/
 
-	cout << "Test" << endl;
+	// start the audio after everything has been initialized
+	StartAudio();
+
+	/*cout << "Test" << endl;
 
 	vector<Event> mySongEvents;
 	vector<float> mySongOffsets;
@@ -156,7 +155,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 		}
 		mySongEvents.clear();
 		mySongOffsets.clear();
-	}
+	}*/
 
     // Main message loop:
     MSG msg;

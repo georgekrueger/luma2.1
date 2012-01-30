@@ -45,7 +45,7 @@ PluginLoader* pluginLoader = NULL;
 
 VstMidiEvent globalEvent;
 
-extern Track track;
+extern Track gTrack;
 
 static const unsigned int VST_MAX_OUTPUT_CHANNELS_SUPPORTED = 2;
 static float** vstOutputBuffer = NULL;
@@ -125,9 +125,9 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 		*out++ = vstOutputBuffer[0][i];
 		*out++ = vstOutputBuffer[1][i];
 	}
-	/*
+	
 	// Process events
-	track.Update(0, timeElapsedInMs, songEvents, songOffsets);
+	gTrack.Update(0, timeElapsedInMs, songEvents, songOffsets);
 
 	// convert offsets to samples
 	for (int j=0; j<songEvents.size(); j++) {
@@ -139,11 +139,10 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 	// check for note-off / note-on pairs at the same pitch and time.
 	// some vsts require that the note-on be atleast one sample after the note-off.
 	for (int j=0; j<songEvents.size(); j++) {
-		if (songEvents[j].GetType() == NOTE_OFF) {
-			if (j + 1 < songEvents.size() && songEvents[j+1].GetType() == NOTE_ON && songOffsets[j] == songOffsets[j+1]) {
-				NoteOnEvent* noteOnEvent = static_cast<NoteOnEvent*>(&songEvents[j]);
-				NoteOffEvent* noteOffEvent = static_cast<NoteOffEvent*>(&songEvents[j+1]);
-				if (noteOnEvent->GetPitch() == noteOffEvent->GetPitch()) {
+		if (songEvents[j].type == NOTE_OFF) {
+			if (j + 1 < songEvents.size() && songEvents[j+1].type == NOTE_ON && songOffsets[j] == songOffsets[j+1]) 
+			{
+				if (songEvents[j].noteOffEvent.pitch == songEvents[j+1].noteOnEvent.pitch) {
 					if (songOffsets[j] > 0) {
 						// move the note-off back one sample
 						songOffsets[j] -= 1;
@@ -158,22 +157,20 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 	}
 
 	for (int j=0; j<songEvents.size(); j++) {
-		Event* e = &songEvents[j];
+		Event& e = songEvents[j];
 		float offset = songOffsets[j];
 
-		if (e->GetType() == NOTE_OFF) {
-			NoteOffEvent* noteOffEvent = static_cast<NoteOffEvent*>(&songEvents[j+1]);
-			PlayNoteOff(effect, offset, noteOffEvent->GetPitch());
+		if (e.type == NOTE_OFF) {
+			PlayNoteOff(effect, offset, e.noteOffEvent.pitch);
 		}
-		else if (e->GetType() == NOTE_ON) {
-			NoteOnEvent* noteOnEvent = static_cast<NoteOnEvent*>(&songEvents[j]);
-			int noteLengthInSamples = noteOnEvent->GetLengthInMs() / 1000 * AUDIO_SAMPLE_RATE;
-			PlayNoteOn(effect, offset, noteOnEvent->GetPitch(), noteOnEvent->GetVelocity(), noteLengthInSamples);
+		else if (e.type == NOTE_ON) {
+			int noteLengthInSamples = e.noteOnEvent.length / 1000 * AUDIO_SAMPLE_RATE;
+			PlayNoteOn(effect, offset, e.noteOnEvent.pitch, e.noteOnEvent.velocity, noteLengthInSamples);
 		}
 	}
 	songEvents.clear();
 	songOffsets.clear();
-	*/
+	
 	// End process events
 	
     return 0;
@@ -187,6 +184,9 @@ void HandleAudioError(PaError err)
 
 bool StartAudio()
 {
+	songEvents.reserve(100);
+	songOffsets.reserve(100);
+
 	PaStreamParameters outputParameters;
     PaError err;
     
