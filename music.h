@@ -79,104 +79,47 @@ float BeatsToMilliseconds(unsigned long beats)
 	return (BEAT_LENGTH * beats);
 }
 
-class Event
+struct Event
 {
-public:
-	Event(EventType type) : type_(type){}
-	virtual ~Event() {}
-	virtual void Print(ostream &stream)
+	void Print(ostream &stream)
 	{
-		stream << "Type: " << EventTypeNames[type_];
+		stream << "Type: " << EventTypeNames[type] << " ";
+		if (type == NOTE_ON) {
+			stream << "Pitch " << noteOnEvent.pitch << " Vel " << noteOnEvent.velocity << " Length " << noteOnEvent.length;
+		}
+		else if (type == NOTE_OFF) {
+			stream << "Pitch " << noteOffEvent.pitch;
+		}
+		else if (type == REST) {
+			stream << "Length " << restEvent.length;
+		}
 	}
 
-	EventType GetType() { return type_; }
+	EventType     type;
 
-	virtual Event* Copy() const = 0;
-
-private:
-	EventType type_;
-};
-
-class NoteOnEvent : public Event
-{
-public:
-	NoteOnEvent(Scale scale, int octave, int degree, short velocity, int length) 
-		: Event(NOTE_ON), scale_(scale), octave_(octave), degree_(degree), velocity_(velocity), 
-		length_(length)	{}
-
-	~NoteOnEvent() {}
-
-	short GetLength() { return length_; }
-	short GetLengthInMs() { return BeatsToMilliseconds(length_); }
-	short GetPitch() { return GetMidiPitch(scale_, octave_, degree_); }
-	short GetVelocity() { return velocity_; }
-	Scale GetScale() { return scale_; }
-	int   GetOctave() { return octave_; }
-	int   GetDegree() { return degree_; }
-
-	virtual void Print(ostream &stream)
+	union 
 	{
-		stream << "NoteOn: ";
-		stream << "Scale " << GetScaleName(scale_) << " Octave " << octave_ << " Degree " << degree_
-				<< " Vel " << velocity_ << " Length " << length_;
-	}
+		struct
+		{
+			short         pitch;
+			short         velocity;
+			unsigned long length;
 
-	virtual Event* Copy() const
-	{
-		return new NoteOnEvent(*this);
-	}
+		} noteOnEvent;
 
-private:
-	Scale scale_;
-	int octave_;
-	int degree_;
-	short velocity_;
-	unsigned long length_;
-};
+		struct
+		{
+			short         pitch;
 
-class NoteOffEvent : public Event
-{
-public:
-	NoteOffEvent(short pitch) : Event(NOTE_OFF), pitch_(pitch) {}
-	~NoteOffEvent() {}
+		} noteOffEvent;
 
-	short GetPitch() { return pitch_; }
+		struct
+		{
+			unsigned long length;
 
-	virtual void Print(ostream &stream)
-	{
-		stream << "NoteOff: ";
-		stream << "Pitch " << pitch_;
-	}
-
-	virtual Event* Copy() const
-	{
-		return new NoteOffEvent(*this);
-	}
-
-private:
-	short pitch_;
-};
-
-class RestEvent : public Event
-{
-public:
-	RestEvent(unsigned long length) : Event(REST), length_(length) {}
-	~RestEvent() {}
-	short GetLengthInMs() { return BeatsToMilliseconds(length_); }
-
-	virtual void Print(ostream &stream)
-	{
-		stream << "Rest: ";
-		stream << "Length " << length_;
-	}
-
-	virtual Event* Copy() const
-	{
-		return new RestEvent(*this);
-	}
-
-private:
-	unsigned long length_;
+		} restEvent;
+	};
+	
 };
 
 class Pattern
@@ -193,15 +136,17 @@ public:
 
 	~Pattern() 
 	{
-		for (unsigned long i=0; i<events_.size(); i++) {
-			delete events_[i];
-		}
 	}
 
 public:
-	void Add(const Event* e)
+	void Add(const Event& e)
 	{
-		events_.push_back(e->Copy());
+		events_.push_back(e);
+	}
+
+	void Clear()
+	{
+		events_.clear();
 	}
 
 	size_t GetNumEvents() { 
@@ -210,7 +155,7 @@ public:
 
 	Event* GetEvent(int i) {
 		if (i > events_.size()) return NULL;
-		return events_[i];
+		return &events_[i];
 	}
 	
 	void SetRepeatCount(int count) {
@@ -228,7 +173,7 @@ public:
 			if (i != 0) {
 				cout << ", ";
 			}
-			events_[i]->Print(cout);
+			events_[i].Print(cout);
 		}
 		cout << "]";
 		if (repeatCount_ != 1) {
@@ -243,7 +188,7 @@ private:
 	}
 
 private:
-	vector<Event*> events_;
+	vector<Event> events_;
 	unsigned long repeatCount_;
 };
 
@@ -252,14 +197,44 @@ class Track
 public:
 	Track() {}
 
+	class EventList;
+
 	void AddPattern(const Pattern& p, PatternQuantize quantize)
 	{
 		PatternInfo sp(p, quantize);
 		patterns_.push_back(sp);
 	}
 
-	void Update(float songTime, float elapsedTime, vector<Event*>& events, vector<float>& offsets)
+	void Update(float songTime, float elapsedTime, vector<Event>& events, vector<float>& offsets)
 	{
+		// update active notes
+		map<short, ActiveNote>::iterator it;
+		for (it = activeNotes_.begin(); it != activeNotes_.end(); ) {
+			ActiveNote& activeNote = it->second;
+			if (elapsedTime >= activeNote.timeLeft) {
+				// if at the end of the buffer, wait until next update to generate note off
+				if (elapsedTime == activeNote.timeLeft) {
+					activeNote.timeLeft = 0;
+					it++;
+					continue;
+				}
+				// generate note off event
+				Event off;
+				off.type = NOTE_OFF;
+				off.noteOffEvent.pitch = activeNote.pitch;
+				events.push_back(off);
+				offsets.push_back(activeNote.timeLeft);
+
+				// remove active note
+				map<short, ActiveNote>::iterator removeIt = it;
+				it++;
+				activeNotes_.erase(removeIt);
+			}
+			else {
+				it++;
+			}
+		}
+
 		// iterate the patterns
 		size_t numPatterns = patterns_.size();
 		for (int i=0; i<numPatterns; i++) {
@@ -297,12 +272,10 @@ public:
 					{
 						Event* e = pat.pattern.GetEvent(pat.pos);
 						
-						if (e->GetType() == REST)
+						if (e->type == REST)
 						{
-							RestEvent* restEvent = static_cast<RestEvent*>(e);
-
 							// rest event
-							float noteLength = restEvent->GetLengthInMs();
+							float noteLength = BeatsToMilliseconds(e->restEvent.length);
 							if (timeUsed + noteLength > elapsedTime) {
 								unsigned long timeLeftInFrame = elapsedTime - timeUsed;
 								pat.leftover = noteLength - timeLeftInFrame;
@@ -315,30 +288,30 @@ public:
 								pat.pos++;
 							}
 						}
-						else if (e->GetType() == NOTE_ON) 
+						else if (e->type == NOTE_ON) 
 						{
-							NoteOnEvent* noteOnEvent = static_cast<NoteOnEvent*>(e);
-
 							// note on event
-							map<short, ActiveNote>::iterator activeNoteIter = activeNotes_.find(noteOnEvent->GetPitch());
+							map<short, ActiveNote>::iterator activeNoteIter = activeNotes_.find(e->noteOnEvent.pitch);
 							if (activeNoteIter != activeNotes_.end()) {
 								// if note is already on, turn it off
 								ActiveNote& activeNote = activeNoteIter->second;
-								NoteOffEvent noteOffEvent(activeNote.pitch);
-								events.push_back(noteOffEvent);
+								Event off;
+								off.type = NOTE_OFF;
+								off.noteOffEvent.pitch = activeNote.pitch;
+								events.push_back(off);
 								offsets.push_back(timeUsed); // make sure the note off event is before the note on for the same pitch
 
 								// active note at this pitch already exists, so replace 
 								// that active note with this one
-								activeNote.pitch = noteOnEvent->GetPitch();
-								activeNote.timeLeft = noteOnEvent->GetLengthInMs();
+								activeNote.pitch = e->noteOnEvent.pitch;
+								activeNote.timeLeft = BeatsToMilliseconds(e->noteOnEvent.length) + timeUsed;
 							}
 							else {
 								// create a new entry in the active note list
 								ActiveNote active;
-								active.pitch = noteOnEvent->GetPitch();
-								active.timeLeft = noteOnEvent->GetLengthInMs();
-								activeNotes_[noteOnEvent->GetPitch()] = active;
+								active.pitch = e->noteOnEvent.pitch;
+								active.timeLeft = BeatsToMilliseconds(e->noteOnEvent.length) + timeUsed;
+								activeNotes_[e->noteOnEvent.pitch] = active;
 							}
 							events.push_back(*e);
 							offsets.push_back(timeUsed);
@@ -347,30 +320,37 @@ public:
 					}
 				}
 				else {
+					timeUsedThisIteration = elapsedTime - timeUsed;
 					timeUsed = elapsedTime;
-					timeUsedThisIteration = elapsedTime;
 				}
+			}
+		}
 
-				// update active notes
-				map<short, ActiveNote>::iterator it;
-				for (it = activeNotes_.begin(); it != activeNotes_.end(); ) {
-					ActiveNote* activeNote = &it->second;
-					if (timeUsedThisIteration > activeNote->timeLeft) {
-						// generate note off event
-						NoteOffEvent noteOffEvent(activeNote->pitch);
-						events.push_back(noteOffEvent);
-						offsets.push_back(activeNote->timeLeft);
-
-						// remove active note
-						map<short, ActiveNote>::iterator removeIt = it;
-						it++;
-						activeNotes_.erase(removeIt);
-					}
-					else {
-						activeNote->timeLeft -= timeUsedThisIteration;
-						it++;
-					}
+		// update active notes
+		for (it = activeNotes_.begin(); it != activeNotes_.end(); ) {
+			ActiveNote& activeNote = it->second;
+			if (elapsedTime >= activeNote.timeLeft) {
+				// if at the end of the buffer, wait until next update to generate note off
+				if (elapsedTime == activeNote.timeLeft) {
+					activeNote.timeLeft = 0;
+					it++;
+					continue;
 				}
+				// generate note off event
+				Event off;
+				off.type = NOTE_OFF;
+				off.noteOffEvent.pitch = activeNote.pitch;
+				events.push_back(off);
+				offsets.push_back(activeNote.timeLeft);
+
+				// remove active note
+				map<short, ActiveNote>::iterator removeIt = it;
+				it++;
+				activeNotes_.erase(removeIt);
+			}
+			else {
+				activeNote.timeLeft -= elapsedTime;
+				it++;
 			}
 		}
 	}
@@ -388,28 +368,6 @@ private:
 		float leftover;
 		PatternQuantize quantize;
 		Pattern pattern;
-	};
-
-	class EventList
-	{
-	public:
-		EventList()
-		{
-			events.reserve(1000);
-			for (int i=0; i<events.size(); i++) {
-				//events[i] = new 
-			}
-		}
-
-		~EventList()
-		{
-			for (int i=0; i<events.size(); i++) {
-				delete events[i];
-			}
-		}
-
-		vector<Event*> events;
-		vector<float>  offsets;
 	};
 
 	struct ActiveNote

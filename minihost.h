@@ -125,7 +125,7 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 		*out++ = vstOutputBuffer[0][i];
 		*out++ = vstOutputBuffer[1][i];
 	}
-
+	/*
 	// Process events
 	track.Update(0, timeElapsedInMs, songEvents, songOffsets);
 
@@ -173,6 +173,7 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 	}
 	songEvents.clear();
 	songOffsets.clear();
+	*/
 	// End process events
 	
     return 0;

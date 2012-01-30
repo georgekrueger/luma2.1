@@ -113,15 +113,33 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	// start the audio after everything has been initialized
 	StartAudio();
 
-	NoteOnEvent myNoteOn(CMAJ, 4, 1, 100, 4);
-	NoteOnEvent myNoteOn2(CMAJ, 4, 5, 100, 4);
-	RestEvent myRest(4);
-	Pattern myPattern(4);
-	myPattern.Add(&myNoteOn);
-	myPattern.Add(&myRest);
-	myPattern.Add(&myNoteOn2);
-	myPattern.Add(&myRest);
 	Track myTrack;
+	
+	Pattern myPattern(4);
+	Event noteOn;
+	Event rest;
+	rest.type = REST;
+	rest.restEvent.length = 4;
+	noteOn.type = NOTE_ON;
+	noteOn.noteOnEvent.pitch = GetMidiPitch(CMAJ, 4, 1);
+	noteOn.noteOnEvent.velocity = 100;
+	noteOn.noteOnEvent.length = 4;
+	myPattern.Add(noteOn);
+	myPattern.Add(rest);
+	noteOn.noteOnEvent.pitch = GetMidiPitch(CMAJ, 4, 5);
+	myPattern.Add(noteOn);
+	myPattern.Add(rest);
+
+	myTrack.AddPattern(myPattern, BAR);
+
+	myPattern.Clear();
+	noteOn.noteOnEvent.pitch = GetMidiPitch(CMAJ, 3, 1);
+	myPattern.Add(noteOn);
+	myPattern.Add(rest);
+	noteOn.noteOnEvent.pitch = GetMidiPitch(CMAJ, 3, 5);
+	myPattern.Add(noteOn);
+	myPattern.Add(rest);
+	
 	myTrack.AddPattern(myPattern, BAR);
 
 	cout << "Test" << endl;
@@ -130,7 +148,6 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	vector<float> mySongOffsets;
  	for (int i=0; i<1000; i++)
 	{
-		cout << "Track Update" << endl;
 		myTrack.Update(0, 64, mySongEvents, mySongOffsets);
 		for (int j=0; j<mySongEvents.size(); j++) {
 			cout << "Offset: " << mySongOffsets[j] << " ";
