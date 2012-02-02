@@ -102,28 +102,32 @@ int WINAPI WinMain(HINSTANCE hInstance,
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
 
-	// parse input file
-	/*init_table();
-	is.open("C:\\Documents and Settings\\George\\My Documents\\luma2\\input.txt", ifstream::in);
-	int ret = yyparse();
-	is.close();*/
-
 	//lua_State* luaState_ = luaL_newstate();
-
 	
-	
-	Pattern myPattern(16);
-	Event noteOn;
-	Event rest;
+	Pattern myPattern(1000);
+	WeightedEvent noteOn;
+	WeightedEvent rest;
 	rest.type = REST;
-	rest.restEvent.length = 1;
+	rest.length.push_back(0.5);
+	rest.length.push_back(0.25);
+	rest.length.push_back(1);
+	rest.lengthWeight.push_back(5);
+	rest.lengthWeight.push_back(5);
+	rest.lengthWeight.push_back(1);
+
 	noteOn.type = NOTE_ON;
-	noteOn.noteOnEvent.pitch = GetMidiPitch(CMAJ, 4, 1);
-	noteOn.noteOnEvent.velocity = 100;
-	noteOn.noteOnEvent.length = 2;
-	myPattern.Add(noteOn);
-	myPattern.Add(rest);
-	noteOn.noteOnEvent.pitch = GetMidiPitch(CMAJ, 4, 5);
+
+	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 4, 1));
+	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 4, 5));
+	noteOn.pitchWeights.push_back(1);
+	noteOn.pitchWeights.push_back(1);
+
+	noteOn.velocity.push_back(100);
+	noteOn.velocityWeight.push_back(1);
+
+	noteOn.length.push_back(0.5);
+	noteOn.lengthWeight.push_back(1);
+
 	myPattern.Add(noteOn);
 	myPattern.Add(rest);
 

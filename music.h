@@ -7,7 +7,7 @@
 #include <map>
 using namespace std;
 
-float BPM = 200;
+float BPM = 120;
 float BEAT_LENGTH = 1 / BPM * 60000;
 
 ///////////////////////////
@@ -74,17 +74,17 @@ unsigned short GetMidiPitch(Scale scale, int octave, int degree)
 	return midiPitch;
 }
 
-float BeatsToMilliseconds(unsigned long beats)
+float BeatsToMilliseconds(float beats)
 {
 	return (BEAT_LENGTH * beats);
 }
 
-struct Event
+struct WeightedEvent
 {
 	void Print(ostream &stream)
 	{
 		stream << "Type: " << EventTypeNames[type] << " ";
-		if (type == NOTE_ON) {
+		/*if (type == NOTE_ON) {
 			stream << "Pitch " << noteOnEvent.pitch << " Vel " << noteOnEvent.velocity << " Length " << noteOnEvent.length;
 		}
 		else if (type == NOTE_OFF) {
@@ -92,34 +92,61 @@ struct Event
 		}
 		else if (type == REST) {
 			stream << "Length " << restEvent.length;
-		}
+		}*/
 	}
 
 	EventType     type;
+	vector<short> pitch;
+	vector<unsigned long> pitchWeights;
+	vector<short> velocity;
+	vector<unsigned long> velocityWeight;
+	vector<float> length;
+	vector<unsigned long> lengthWeight;
 
-	union 
+	short offPitch;
+
+	short GetPitch() { 
+		unsigned long pick = WeightedChoose(pitchWeights);
+		return pitch[pick];
+	}
+
+	short GetVelocity() { 
+		unsigned long pick = WeightedChoose(velocityWeight);
+		return velocity[pick];
+	}
+
+	float GetLength() { 
+		unsigned long pick = WeightedChoose(lengthWeight);
+		return length[pick];
+	}
+
+
+private:
+	unsigned long WeightedChoose(vector<unsigned long> weights)
 	{
-		struct
-		{
-			short         pitch;
-			short         velocity;
-			unsigned long length;
-
-		} noteOnEvent;
-
-		struct
-		{
-			short         pitch;
-
-		} noteOffEvent;
-
-		struct
-		{
-			unsigned long length;
-
-		} restEvent;
-	};
+		unsigned long total = 0;
+		for (unsigned long i=0; i<weights.size(); i++) {
+			total += weights[i];
+		}
+		int num = rand() % total;
+		total = 0;
+		for (unsigned long i=0; i<weights.size(); i++) {
+			total += weights[i];
+			if (total > num) {
+				return i;
+			}
+		}
+		return 0;
+	}
 	
+};
+
+struct Event
+{
+	EventType type;
+	short     pitch;
+	short     velocity;
+	float     length;
 };
 
 class Pattern
@@ -139,7 +166,7 @@ public:
 	}
 
 public:
-	void Add(const Event& e)
+	void Add(const WeightedEvent& e)
 	{
 		events_.push_back(e);
 	}
@@ -153,7 +180,7 @@ public:
 		return events_.size(); 
 	}
 
-	Event* GetEvent(int i) {
+	WeightedEvent* GetEvent(int i) {
 		if (i > events_.size()) return NULL;
 		return &events_[i];
 	}
@@ -188,7 +215,7 @@ private:
 	}
 
 private:
-	vector<Event> events_;
+	vector<WeightedEvent> events_;
 	unsigned long repeatCount_;
 };
 
@@ -221,7 +248,7 @@ public:
 				// generate note off event
 				Event off;
 				off.type = NOTE_OFF;
-				off.noteOffEvent.pitch = activeNote.pitch;
+				off.pitch = activeNote.pitch;
 				events.push_back(off);
 				offsets.push_back(activeNote.timeLeft);
 
@@ -270,12 +297,13 @@ public:
 					}
 					else
 					{
-						Event* e = pat.pattern.GetEvent(pat.pos);
+						WeightedEvent* e = pat.pattern.GetEvent(pat.pos);
 						
 						if (e->type == REST)
 						{
 							// rest event
-							float noteLength = BeatsToMilliseconds(e->restEvent.length);
+							float length = e->GetLength();
+							float noteLength = BeatsToMilliseconds(length);
 							if (timeUsed + noteLength > elapsedTime) {
 								unsigned long timeLeftInFrame = elapsedTime - timeUsed;
 								pat.leftover = noteLength - timeLeftInFrame;
@@ -291,29 +319,37 @@ public:
 						else if (e->type == NOTE_ON) 
 						{
 							// note on event
-							map<short, ActiveNote>::iterator activeNoteIter = activeNotes_.find(e->noteOnEvent.pitch);
+							short pitch = e->GetPitch();
+							short velocity = e->GetVelocity();
+							float length = e->GetLength();
+							map<short, ActiveNote>::iterator activeNoteIter = activeNotes_.find(pitch);
 							if (activeNoteIter != activeNotes_.end()) {
 								// if note is already on, turn it off
 								ActiveNote& activeNote = activeNoteIter->second;
 								Event off;
 								off.type = NOTE_OFF;
-								off.noteOffEvent.pitch = activeNote.pitch;
+								off.pitch = pitch;
 								events.push_back(off);
 								offsets.push_back(timeUsed); // make sure the note off event is before the note on for the same pitch
 
 								// active note at this pitch already exists, so replace 
 								// that active note with this one
-								activeNote.pitch = e->noteOnEvent.pitch;
-								activeNote.timeLeft = BeatsToMilliseconds(e->noteOnEvent.length) + timeUsed;
+								activeNote.pitch = pitch;
+								activeNote.timeLeft = BeatsToMilliseconds(length) + timeUsed;
 							}
 							else {
 								// create a new entry in the active note list
 								ActiveNote active;
-								active.pitch = e->noteOnEvent.pitch;
-								active.timeLeft = BeatsToMilliseconds(e->noteOnEvent.length) + timeUsed;
-								activeNotes_[e->noteOnEvent.pitch] = active;
+								active.pitch = pitch;
+								active.timeLeft = BeatsToMilliseconds(length) + timeUsed;
+								activeNotes_[pitch] = active;
 							}
-							events.push_back(*e);
+							Event noteOn;
+							noteOn.type = NOTE_ON;
+							noteOn.pitch = pitch;
+							noteOn.velocity = velocity;
+							noteOn.length = length;
+							events.push_back(noteOn);
 							offsets.push_back(timeUsed);
 							pat.pos++;
 						}
@@ -339,7 +375,7 @@ public:
 				// generate note off event
 				Event off;
 				off.type = NOTE_OFF;
-				off.noteOffEvent.pitch = activeNote.pitch;
+				off.pitch = activeNote.pitch;
 				events.push_back(off);
 				offsets.push_back(activeNote.timeLeft);
 

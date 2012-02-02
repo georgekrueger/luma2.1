@@ -142,7 +142,7 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 		if (songEvents[j].type == NOTE_OFF) {
 			if (j + 1 < songEvents.size() && songEvents[j+1].type == NOTE_ON && songOffsets[j] == songOffsets[j+1]) 
 			{
-				if (songEvents[j].noteOffEvent.pitch == songEvents[j+1].noteOnEvent.pitch) {
+				if (songEvents[j].pitch == songEvents[j+1].pitch) {
 					if (songOffsets[j] > 0) {
 						// move the note-off back one sample
 						songOffsets[j] -= 1;
@@ -161,11 +161,11 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 		float offset = songOffsets[j];
 
 		if (e.type == NOTE_OFF) {
-			PlayNoteOff(effect, offset, e.noteOffEvent.pitch);
+			PlayNoteOff(effect, offset, e.pitch);
 		}
 		else if (e.type == NOTE_ON) {
-			int noteLengthInSamples = e.noteOnEvent.length / 1000 * AUDIO_SAMPLE_RATE;
-			PlayNoteOn(effect, offset, e.noteOnEvent.pitch, e.noteOnEvent.velocity, noteLengthInSamples);
+			int noteLengthInSamples = e.length / 1000 * AUDIO_SAMPLE_RATE;
+			PlayNoteOn(effect, offset, e.pitch, e.velocity, noteLengthInSamples);
 		}
 	}
 	songEvents.clear();
