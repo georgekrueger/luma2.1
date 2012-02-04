@@ -4,107 +4,49 @@
 #include <windows.h>
 #include <stdlib.h>
 #include <string.h>
-#include <tchar.h>
-#include "minihost.h"
+
 #include "luainc.h"
 #include "music.h"
+#include "Plugin.h"
+#include "portaudio.h"
 
-// Global variables
+using namespace std;
 
-// The main window class name.
-static TCHAR szWindowClass[] = _T("win32app");
+static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
+                            unsigned long framesPerBuffer,
+                            const PaStreamCallbackTimeInfo* timeInfo,
+                            PaStreamCallbackFlags statusFlags,
+                            void *userData );
 
-// The string that appears in the application's title bar.
-static TCHAR szTitle[] = _T("Win32 Guided Tour Application");
+static const unsigned long AUDIO_SAMPLE_RATE = 44100;
+static const int AUDIO_OUTPUT_CHANNELS = 2;
+static const unsigned long AUDIO_FRAMES_PER_BUFFER = 512;
+//static const int VST_MAX_EVENTS = 512;
 
-HINSTANCE hInst;
-
-// Forward declarations of functions included in this code module:
-LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+PaStream *stream = NULL;
+bool audioStarted = false;
+static float** vstOutputBuffer = NULL;
 
 Track gTrack;
+Plugin gPlugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
+Plugin gPlugin2(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
+vector<Event> songEvents;
+vector<float> songOffsets;
 
 int WINAPI WinMain(HINSTANCE hInstance,
                    HINSTANCE hPrevInstance,
                    LPSTR lpCmdLine,
                    int nCmdShow)
 {
-	if (!checkPlatform ())
-	{
-		printf ("Platform verification failed! Please check your Compiler Settings!\n");
-		return 1;
-	}
-
-	LoadPlugin();
-
-    WNDCLASSEX wcex;
-
-    wcex.cbSize = sizeof(WNDCLASSEX);
-    wcex.style          = CS_HREDRAW | CS_VREDRAW;
-    wcex.lpfnWndProc    = WndProc;
-    wcex.cbClsExtra     = 0;
-    wcex.cbWndExtra     = 0;
-    wcex.hInstance      = hInstance;
-    wcex.hIcon          = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_APPLICATION));
-    wcex.hCursor        = LoadCursor(NULL, IDC_ARROW);
-    wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-    wcex.lpszMenuName   = NULL;
-    wcex.lpszClassName  = szWindowClass;
-    wcex.hIconSm        = LoadIcon(wcex.hInstance, MAKEINTRESOURCE(IDI_APPLICATION));
-
-    if (!RegisterClassEx(&wcex))
-    {
-        MessageBox(NULL,
-            _T("Call to RegisterClassEx failed!"),
-            _T("Win32 Guided Tour"),
-            NULL);
-
-        return 1;
-    }
-
-    hInst = hInstance; // Store instance handle in our global variable
-
-    // The parameters to CreateWindow explained:
-    // szWindowClass: the name of the application
-    // szTitle: the text that appears in the title bar
-    // WS_OVERLAPPEDWINDOW: the type of window to create
-    // CW_USEDEFAULT, CW_USEDEFAULT: initial position (x, y)
-    // 500, 100: initial size (width, length)
-    // NULL: the parent of this window
-    // NULL: this application does not have a menu bar
-    // hInstance: the first parameter from WinMain
-    // NULL: not used in this application
-    HWND hWnd = CreateWindow(
-        szWindowClass,
-        szTitle,
-        WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT,
-        500, 100,
-        NULL,
-        NULL,
-        hInstance,
-        effect
-    );
-
-    if (!hWnd)
-    {
-        MessageBox(NULL,
-            _T("Call to CreateWindow failed!"),
-            _T("Win32 Guided Tour"),
-            NULL);
-
-        return 1;
-    }
-
-    // The parameters to ShowWindow explained:
-    // hWnd: the value returned from CreateWindow
-    // nCmdShow: the fourth parameter from WinMain
-    ShowWindow(hWnd, nCmdShow);
-    UpdateWindow(hWnd);
+	
+	gPlugin.Load("C:\\Program Files\\VSTPlugins\\Circle.dll");
+	gPlugin.Show(hInstance, nCmdShow);
+	gPlugin2.Load("C:\\Program Files\\VSTPlugins\\Circle.dll");
+	gPlugin2.Show(hInstance, nCmdShow);
 
 	//lua_State* luaState_ = luaL_newstate();
 	
-	Pattern myPattern(1000);
+	/*Pattern myPattern(1000);
 	WeightedEvent noteOn;
 	WeightedEvent rest;
 	rest.type = REST;
@@ -159,10 +101,10 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	myPattern2.Add(noteOn);
 	myPattern2.Add(rest);
 
-	gTrack.AddPattern(myPattern2, BAR);
+	gTrack.AddPattern(myPattern2, BAR);*/
 
 	// start the audio after everything has been initialized
-	StartAudio();
+	//StartAudio();
 
 	/*cout << "Test" << endl;
 
@@ -191,83 +133,154 @@ int WINAPI WinMain(HINSTANCE hInstance,
     return (int) msg.wParam;
 }
 
-//
-//  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
-//
-//  PURPOSE:  Processes messages for the main window.
-//
-//  WM_PAINT    - Paint the main window
-//  WM_DESTROY  - post a quit message and return
-//
-//
-LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
+void HandleAudioError(PaError err)
 {
-    PAINTSTRUCT ps;
-    HDC hdc;
+	// print error info here
+	cout << "Audio failed to start. Error code: " << err << endl;
+}
 
-    switch (message)
-    {
-    case WM_DESTROY:
-        PostQuitMessage(0);
-        break;
-	//-----------------------
-	case WM_CREATE :
-	{
-		SetWindowText (hWnd, "VST Editor");
-		//SetTimer (hwnd, 1, 20, 0);
+bool StartAudio()
+{
+	songEvents.reserve(100);
+	songOffsets.reserve(100);
 
-		if (effect)
-		{
-			printf ("HOST> Open editor...\n");
-			effect->dispatcher (effect, effEditOpen, 0, 0, hWnd, 0);
+	PaStreamParameters outputParameters;
+    PaError err;
+    
+	// init buffer used in callback to retrieve data from plugin
+	vstOutputBuffer = new float*[VST_MAX_OUTPUT_CHANNELS_SUPPORTED];
+	for (int i=0; i<VST_MAX_OUTPUT_CHANNELS_SUPPORTED; i++) {
+		vstOutputBuffer[i] = new float[AUDIO_FRAMES_PER_BUFFER];
+	}
 
-			printf ("HOST> Get editor rect..\n");
-			ERect* eRect = 0;
-			effect->dispatcher (effect, effEditGetRect, 0, 0, &eRect, 0);
-			if (eRect)
-			{
-				int width = eRect->right - eRect->left;
-				int height = eRect->bottom - eRect->top;
-				if (width < 100)
-					width = 100;
-				if (height < 100)
-					height = 100;
-
-				RECT wRect;
-				SetRect (&wRect, 0, 0, width, height);
-				AdjustWindowRectEx (&wRect, GetWindowLong (hWnd, GWL_STYLE), FALSE, GetWindowLong (hWnd, GWL_EXSTYLE));
-				width = wRect.right - wRect.left;
-				height = wRect.bottom - wRect.top;
-
-				SetWindowPos (hWnd, HWND_TOP, 0, 0, width, height, SWP_NOMOVE);
-			}
-		}
-	}	break;
-
-	//-----------------------
-	/*case WM_TIMER :
-		if (effect)
-			effect->dispatcher (effect, effEditIdle, 0, 0, 0, 0);
-		break;*/
-
-	//-----------------------
-	case WM_CLOSE :
-	{
-		//KillTimer (hwnd, 1);
-
-		printf ("HOST> Close editor..\n");
-		if (effect)
-			effect->dispatcher (effect, effEditClose, 0, 0, 0, 0);
-
-		Cleanup();
-
-		DestroyWindow(hWnd);
-
-	}	break;
-    default:
-        return DefWindowProc(hWnd, message, wParam, lParam);
-        break;
+	err = Pa_Initialize();
+	if( err != paNoError ) {
+		HandleAudioError(err); 
+		return false;
+	}
+    
+    outputParameters.device = Pa_GetDefaultOutputDevice(); /* default output device */
+    if (outputParameters.device == paNoDevice) {
+      fprintf(stderr,"Error: No default output device.\n");
+      HandleAudioError(err); return false;
     }
 
+    outputParameters.channelCount = AUDIO_OUTPUT_CHANNELS;
+    outputParameters.sampleFormat = paFloat32;
+    outputParameters.suggestedLatency = Pa_GetDeviceInfo( outputParameters.device )->defaultLowOutputLatency;
+    outputParameters.hostApiSpecificStreamInfo = NULL;
+    err = Pa_OpenStream(
+              &stream,
+              NULL, /* no input */
+              &outputParameters,
+              AUDIO_SAMPLE_RATE,
+              AUDIO_FRAMES_PER_BUFFER,
+              (paClipOff | paDitherOff),
+              portaudioCallback,
+              NULL );
+    if( err != paNoError ) {
+		HandleAudioError(err);
+		return false;
+	}
+
+    err = Pa_StartStream( stream );
+    if( err != paNoError ) {
+		HandleAudioError(err); 
+		return false;
+	}
+
+	audioStarted = true;
+
+    return true;
+}
+
+bool StopAudio()
+{
+	PaError err = Pa_CloseStream( stream );
+    if( err != paNoError ) {
+		HandleAudioError(err); 
+		return false;
+	}
+    Pa_Terminate();
+
+	audioStarted = false;
+
+	return true;
+}
+
+/* This routine will be called by the PortAudio engine when audio is needed.
+** It may called at interrupt level on some machines so don't do anything
+** that could mess up the system like calling malloc() or free().
+*/
+static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
+                            unsigned long framesPerBuffer,
+                            const PaStreamCallbackTimeInfo* timeInfo,
+                            PaStreamCallbackFlags statusFlags,
+                            void *userData )
+{
+	/*
+    (void) inputBuffer;
+
+	float timeElapsedInMs = framesPerBuffer / AUDIO_SAMPLE_RATE * 1000;
+
+	VstInt32 numOutputs = effect->numOutputs;
+	
+	float** vstOut = (float**)vstOutputBuffer;
+	//effect->processReplacing (effect, NULL, vstOut, framesPerBuffer);
+
+
+	float *out = (float*)outputBuffer;
+	for (unsigned long i=0; i<framesPerBuffer; i++) {
+		*out++ = vstOutputBuffer[0][i];
+		*out++ = vstOutputBuffer[1][i];
+	}
+	
+	// Process events
+	//gTrack.Update(0, timeElapsedInMs, songEvents, songOffsets);
+
+	// convert offsets to samples
+	for (int j=0; j<songEvents.size(); j++) {
+		// first convert offset to samples
+		int offsetInSamples = songOffsets[j] / 1000 * AUDIO_SAMPLE_RATE;
+		songOffsets[j] = offsetInSamples;
+	}
+
+	// check for note-off / note-on pairs at the same pitch and time.
+	// some vsts require that the note-on be atleast one sample after the note-off.
+	for (int j=0; j<songEvents.size(); j++) {
+		if (songEvents[j].type == NOTE_OFF) {
+			if (j + 1 < songEvents.size() && songEvents[j+1].type == NOTE_ON && songOffsets[j] == songOffsets[j+1]) 
+			{
+				if (songEvents[j].pitch == songEvents[j+1].pitch) {
+					if (songOffsets[j] > 0) {
+						// move the note-off back one sample
+						songOffsets[j] -= 1;
+					}
+					else {
+						// move the note-on forward one sample
+						songOffsets[j+1] += 1;
+					}
+				}
+			}
+		}
+	}
+
+	for (int j=0; j<songEvents.size(); j++) {
+		Event& e = songEvents[j];
+		float offset = songOffsets[j];
+
+		if (e.type == NOTE_OFF) {
+			PlayNoteOff(effect, offset, e.pitch);
+		}
+		else if (e.type == NOTE_ON) {
+			int noteLengthInSamples = e.length / 1000 * AUDIO_SAMPLE_RATE;
+			PlayNoteOn(effect, offset, e.pitch, e.velocity, noteLengthInSamples);
+		}
+	}
+	songEvents.clear();
+	songOffsets.clear();
+	
+	// End process events
+	*/
     return 0;
 }

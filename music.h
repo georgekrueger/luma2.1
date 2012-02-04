@@ -128,7 +128,7 @@ private:
 		for (unsigned long i=0; i<weights.size(); i++) {
 			total += weights[i];
 		}
-		int num = rand() % total;
+		unsigned long num = rand() % total;
 		total = 0;
 		for (unsigned long i=0; i<weights.size(); i++) {
 			total += weights[i];
@@ -180,7 +180,7 @@ public:
 		return events_.size(); 
 	}
 
-	WeightedEvent* GetEvent(int i) {
+	WeightedEvent* GetEvent(unsigned long i) {
 		if (i > events_.size()) return NULL;
 		return &events_[i];
 	}
@@ -264,7 +264,7 @@ public:
 
 		// iterate the patterns
 		size_t numPatterns = patterns_.size();
-		for (int i=0; i<numPatterns; i++) {
+		for (size_t i=0; i<numPatterns; i++) {
 			PatternInfo& pat = patterns_[i];
 			float timeUsed = 0;
 			while (timeUsed < elapsedTime) {
@@ -283,7 +283,7 @@ public:
 					if (pat.leftover > 0) 
 					{
 						if (timeUsed + pat.leftover > elapsedTime) {
-							unsigned long timeLeftInFrame = elapsedTime - timeUsed;
+							float timeLeftInFrame = elapsedTime - timeUsed;
 							pat.leftover -= timeLeftInFrame;
 							timeUsed = elapsedTime;
 							timeUsedThisIteration = timeLeftInFrame;
@@ -305,7 +305,7 @@ public:
 							float length = e->GetLength();
 							float noteLength = BeatsToMilliseconds(length);
 							if (timeUsed + noteLength > elapsedTime) {
-								unsigned long timeLeftInFrame = elapsedTime - timeUsed;
+								float timeLeftInFrame = elapsedTime - timeUsed;
 								pat.leftover = noteLength - timeLeftInFrame;
 								timeUsed = elapsedTime;
 								timeUsedThisIteration = timeLeftInFrame;
