@@ -20,6 +20,9 @@ c:\documents and settings\george\my documents\luma2.1\minihost.h(141): warning C
 c:\documents and settings\george\my documents\luma2.1\minihost.h(143): warning C4018: '<' : signed/unsigned mismatch
 c:\documents and settings\george\my documents\luma2.1\minihost.h(159): warning C4018: '<' : signed/unsigned mismatch
 c:\documents and settings\george\my documents\luma2.1\minihost.h(167): warning C4244: 'initializing' : conversion from 'const double' to 'int', possible loss of data
-c:\documents and settings\george\my documents\luma2.1\winmain.cpp(181): warning C4101: 'ps' : unreferenced local variable
-c:\documents and settings\george\my documents\luma2.1\winmain.cpp(182): warning C4101: 'hdc' : unreferenced local variable
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(205): warning C4101: 'ps' : unreferenced local variable
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(206): warning C4101: 'hdc' : unreferenced local variable
+  Instrument.cpp
+  Audio.cpp
+  Generating Code...
   minihost.vcxproj -> C:\Documents and Settings\George\My Documents\luma2.1\build\.\Debug\minihost.exe

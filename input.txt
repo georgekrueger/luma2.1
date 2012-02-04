@@ -5,7 +5,7 @@ track1 = Track("Circle", "Preset01")
 track2 = Track("Circle", "Preset02")
 
 p = Pattern(
-		Note("cmaj", 4, Range(1,4), Range(70,100), 4), Rest(4),
+		Note("cmaj", Choose({0.5, 0.6}, {1, 0.4}), Choose({1, 0.5}, {4, 0.5}), Range(70,100), 4), Rest(4),
 		Note("cmaj", 4, Range(5,7), Range(70,100), 4), Rest(4),
 		Choose(4, 8, 12)
 	)

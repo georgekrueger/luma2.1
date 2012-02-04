@@ -133,14 +133,33 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
 	gTrack.AddPattern(myPattern, BAR);
 
-	/*myPattern.Clear();
-	noteOn.noteOnEvent.pitch = GetMidiPitch(CMAJ, 3, 1);
-	myPattern.Add(noteOn);
-	myPattern.Add(rest);
-	noteOn.noteOnEvent.pitch = GetMidiPitch(CMAJ, 3, 5);
-	myPattern.Add(noteOn);
-	myPattern.Add(rest);
-	gTrack.AddPattern(myPattern, BAR);*/
+	Pattern myPattern2(1000);
+	rest.length.clear();
+	rest.lengthWeight.clear();
+	rest.length.push_back(1);
+	rest.lengthWeight.push_back(1);
+
+	noteOn.pitch.clear();
+	noteOn.pitchWeights.clear();
+	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 6, 3));
+	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 6, 5));
+	noteOn.pitchWeights.push_back(1);
+	noteOn.pitchWeights.push_back(1);
+
+	noteOn.velocity.clear();
+	noteOn.velocityWeight.clear();
+	noteOn.velocity.push_back(100);
+	noteOn.velocityWeight.push_back(1);
+
+	noteOn.length.clear();
+	noteOn.lengthWeight.clear();
+	noteOn.length.push_back(1.5);
+	noteOn.lengthWeight.push_back(1);
+
+	myPattern2.Add(noteOn);
+	myPattern2.Add(rest);
+
+	gTrack.AddPattern(myPattern2, BAR);
 
 	// start the audio after everything has been initialized
 	StartAudio();
