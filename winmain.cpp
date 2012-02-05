@@ -29,9 +29,9 @@ PaStream *stream = NULL;
 bool audioStarted = false;
 static float** vstOutputBuffer = NULL;
 
-Track gTrack;
-Plugin gPlugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
-Plugin gPlugin2(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
+vector<Track*> tracks;
+vector<Plugin*> plugins;
+
 vector<Event> songEvents;
 vector<float> songOffsets;
 
@@ -40,70 +40,86 @@ int WINAPI WinMain(HINSTANCE hInstance,
                    LPSTR lpCmdLine,
                    int nCmdShow)
 {
-	
-	gPlugin.Load("C:\\Program Files\\VSTPlugins\\Circle.dll");
-	gPlugin.Show(hInstance, nCmdShow);
-	gPlugin2.Load("C:\\Program Files\\VSTPlugins\\Circle.dll");
-	gPlugin2.Show(hInstance, nCmdShow);
+	songEvents.reserve(100);
+	songOffsets.reserve(100);
 
-	//lua_State* luaState_ = luaL_newstate();
+	Plugin* plug = new Plugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
+	plug->Load("C:\\Program Files\\VSTPlugins\\Circle.dll");
+	plug->Show(hInstance, nCmdShow);
+	plugins.push_back(plug);
+
+	plug = new Plugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
+	plug->Load("C:\\Program Files\\VSTPlugins\\Circle.dll");
+	plug->Show(hInstance, nCmdShow);
+	plugins.push_back(plug);
+
+	tracks.push_back(new Track);
+	tracks.push_back(new Track);
 	
 	Pattern myPattern(1000);
 	WeightedEvent noteOn;
 	WeightedEvent rest;
 	rest.type = REST;
-	rest.length.push_back(0.5);
-	rest.length.push_back(0.25);
 	rest.length.push_back(1);
-	rest.lengthWeight.push_back(5);
-	rest.lengthWeight.push_back(5);
+	rest.length.push_back(2);
+	rest.length.push_back(4);
 	rest.lengthWeight.push_back(1);
+	rest.lengthWeight.push_back(2);
+	rest.lengthWeight.push_back(3);
 
 	noteOn.type = NOTE_ON;
 
-	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 4, 1));
-	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 4, 5));
+	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 3, 1));
+	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 3, 3));
+	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 3, 5));
+	noteOn.pitchWeights.push_back(1);
 	noteOn.pitchWeights.push_back(1);
 	noteOn.pitchWeights.push_back(1);
 
+	noteOn.velocity.push_back(50);
 	noteOn.velocity.push_back(100);
 	noteOn.velocityWeight.push_back(1);
+	noteOn.velocityWeight.push_back(1);
 
-	noteOn.length.push_back(0.5);
+	noteOn.length.push_back(4);
 	noteOn.lengthWeight.push_back(1);
 
 	myPattern.Add(noteOn);
 	myPattern.Add(rest);
 
-	gTrack.AddPattern(myPattern, BAR);
+	tracks[0]->AddPattern(myPattern, BAR);
 
 	Pattern myPattern2(1000);
 	rest.length.clear();
 	rest.lengthWeight.clear();
-	rest.length.push_back(1);
+	rest.length.push_back(0.5);
 	rest.lengthWeight.push_back(1);
 
 	noteOn.pitch.clear();
 	noteOn.pitchWeights.clear();
-	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 6, 3));
+	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 6, 1));
+	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 6, 4));
 	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 6, 5));
+	noteOn.pitchWeights.push_back(1);
 	noteOn.pitchWeights.push_back(1);
 	noteOn.pitchWeights.push_back(1);
 
 	noteOn.velocity.clear();
 	noteOn.velocityWeight.clear();
-	noteOn.velocity.push_back(100);
+	noteOn.velocity.push_back(40);
+	noteOn.velocity.push_back(60);
+	noteOn.velocityWeight.push_back(1);
 	noteOn.velocityWeight.push_back(1);
 
 	noteOn.length.clear();
 	noteOn.lengthWeight.clear();
-	noteOn.length.push_back(1.5);
+	noteOn.length.push_back(1);
 	noteOn.lengthWeight.push_back(1);
 
 	myPattern2.Add(noteOn);
 	myPattern2.Add(rest);
 
-	gTrack.AddPattern(myPattern2, BAR);
+	tracks[1]->AddPattern(myPattern2, BAR);
 
 	// start the audio after everything has been initialized
 	StartAudio();
@@ -132,6 +148,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
         DispatchMessage(&msg);
     }
 
+	StopAudio();
+
+	for (int i=0; i<plugins.size(); i++) {
+		delete plugins[i];
+		delete tracks[i];
+	}
+
     return (int) msg.wParam;
 }
 
@@ -143,9 +166,6 @@ void HandleAudioError(PaError err)
 
 bool StartAudio()
 {
-	songEvents.reserve(100);
-	songOffsets.reserve(100);
-
 	PaStreamParameters outputParameters;
     PaError err;
     
@@ -224,62 +244,73 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 
 	float timeElapsedInMs = framesPerBuffer / (float)AUDIO_SAMPLE_RATE * 1000;
 
-	unsigned short numOutputs = gPlugin.GetNumOutputs();
-	
 	float** vstOut = (float**)vstOutputBuffer;
-	gPlugin.Process(vstOut, framesPerBuffer);
-
 
 	float *out = (float*)outputBuffer;
 	for (unsigned long i=0; i<framesPerBuffer; i++) {
-		*out++ = vstOutputBuffer[0][i];
-		*out++ = vstOutputBuffer[1][i];
+		*out++ = 0;
+		*out++ = 0;
 	}
+
+	for (int i=0; i<plugins.size(); i++)
+	{
+		Plugin* plugin = plugins[i];
+		Track* track = tracks[i];
+
+		plugin->Process(vstOut, framesPerBuffer);
+		out = (float*)outputBuffer;
+		for (unsigned long j=0; j<framesPerBuffer; j++) {
+			*out++ += vstOutputBuffer[0][j];
+			*out++ += vstOutputBuffer[1][j];
+		}
 	
-	// Process events
-	gTrack.Update(0, timeElapsedInMs, songEvents, songOffsets);
+		songEvents.clear();
+		songOffsets.clear();
 
-	// convert offsets to samples
-	for (int j=0; j<songEvents.size(); j++) {
-		// first convert offset to samples
-		int offsetInSamples = songOffsets[j] / 1000 * AUDIO_SAMPLE_RATE;
-		songOffsets[j] = offsetInSamples;
-	}
+		// Process events
+		track->Update(0, timeElapsedInMs, songEvents, songOffsets);
 
-	// check for note-off / note-on pairs at the same pitch and time.
-	// some vsts require that the note-on be atleast one sample after the note-off.
-	for (int j=0; j<songEvents.size(); j++) {
-		if (songEvents[j].type == NOTE_OFF) {
-			if (j + 1 < songEvents.size() && songEvents[j+1].type == NOTE_ON && songOffsets[j] == songOffsets[j+1]) 
-			{
-				if (songEvents[j].pitch == songEvents[j+1].pitch) {
-					if (songOffsets[j] > 0) {
-						// move the note-off back one sample
-						songOffsets[j] -= 1;
-					}
-					else {
-						// move the note-on forward one sample
-						songOffsets[j+1] += 1;
+		// convert offsets to samples
+		for (int j=0; j<songEvents.size(); j++) {
+			// first convert offset to samples
+			int offsetInSamples = songOffsets[j] / 1000 * AUDIO_SAMPLE_RATE;
+			songOffsets[j] = offsetInSamples;
+		}
+
+		// check for note-off / note-on pairs at the same pitch and time.
+		// some vsts require that the note-on be atleast one sample after the note-off.
+		for (int j=0; j<songEvents.size(); j++) {
+			if (songEvents[j].type == NOTE_OFF) {
+				if (j + 1 < songEvents.size() && songEvents[j+1].type == NOTE_ON && songOffsets[j] == songOffsets[j+1]) 
+				{
+					if (songEvents[j].pitch == songEvents[j+1].pitch) {
+						if (songOffsets[j] > 0) {
+							// move the note-off back one sample
+							songOffsets[j] -= 1;
+						}
+						else {
+							// move the note-on forward one sample
+							songOffsets[j+1] += 1;
+						}
 					}
 				}
 			}
 		}
-	}
 
-	for (int j=0; j<songEvents.size(); j++) {
-		Event& e = songEvents[j];
-		float offset = songOffsets[j];
+		// send events to plugin
+		for (int j=0; j<songEvents.size(); j++) {
+			Event& e = songEvents[j];
+			float offset = songOffsets[j];
 
-		if (e.type == NOTE_OFF) {
-			gPlugin.PlayNoteOff(offset, e.pitch);
-		}
-		else if (e.type == NOTE_ON) {
-			int noteLengthInSamples = int(e.length / 1000 * AUDIO_SAMPLE_RATE);
-			gPlugin.PlayNoteOn(offset, e.pitch, e.velocity, noteLengthInSamples);
+			if (e.type == NOTE_OFF) {
+				plugin->PlayNoteOff(offset, e.pitch);
+			}
+			else if (e.type == NOTE_ON) {
+				int noteLengthInSamples = int(e.length / 1000 * AUDIO_SAMPLE_RATE);
+				plugin->PlayNoteOn(offset, e.pitch, e.velocity, noteLengthInSamples);
+			}
 		}
 	}
-	songEvents.clear();
-	songOffsets.clear();
 	
 	// End process events
     return 0;

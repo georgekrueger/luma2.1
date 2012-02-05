@@ -315,7 +315,7 @@ void Plugin::PlayNoteOff(float deltaFrames, short pitch)
 
 void Plugin::Process(float** buffer, unsigned long numFrames)
 {
-	effect->processReplacing (effect, NULL, buffer, numFrames);
+	effect->processReplacing(effect, NULL, buffer, numFrames);
 }
 
 unsigned short Plugin::GetNumOutputs()
@@ -522,8 +522,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		printf ("HOST> Close editor..\n");
 		if (effect)
 			effect->dispatcher (effect, effEditClose, 0, 0, 0, 0);
-
-		plugin->Unload();
 
 		DestroyWindow(hWnd);
 	}	break;
