@@ -115,6 +115,8 @@ Plugin::Plugin(unsigned long sampleRate, unsigned long blockSize) : mBlockSize(b
 	BYTE * effEvData = new BYTE[nHdrLen];
 	vstEvents = (VstEvents *) effEvData;
 	vstEvents->numEvents = 0;
+
+	globalEvent = new VstMidiEvent;
 }
 
 Plugin::~Plugin()
@@ -124,6 +126,7 @@ Plugin::~Plugin()
 
 	delete pluginLoader;
 	delete vstEvents;
+	delete globalEvent;
 }
 
 bool Plugin::Load(string fileName)
@@ -285,7 +288,7 @@ void Plugin::PlayNoteOn(float deltaFrames, short pitch, short velocity, short le
 	globalEvent->noteOffVelocity = 0;	///< Note Off Velocity [0, 127]
 	
 	vstEvents->numEvents = 1;
-	vstEvents->events[0] = (VstEvent*)&globalEvent;
+	vstEvents->events[0] = (VstEvent*)globalEvent;
 	
 	effect->dispatcher( effect, effProcessEvents, 0, 0, vstEvents, 0);
 }
@@ -305,7 +308,7 @@ void Plugin::PlayNoteOff(float deltaFrames, short pitch)
 	globalEvent->noteOffVelocity = 0;	///< Note Off Velocity [0, 127]
 	
 	vstEvents->numEvents = 1;
-	vstEvents->events[0] = (VstEvent*)&globalEvent;
+	vstEvents->events[0] = (VstEvent*)globalEvent;
 	
 	effect->dispatcher( effect, effProcessEvents, 0, 0, vstEvents, 0);
 }
@@ -313,6 +316,11 @@ void Plugin::PlayNoteOff(float deltaFrames, short pitch)
 void Plugin::Process(float** buffer, unsigned long numFrames)
 {
 	effect->processReplacing (effect, NULL, buffer, numFrames);
+}
+
+unsigned short Plugin::GetNumOutputs()
+{
+	return effect->numOutputs;
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -518,7 +526,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		plugin->Unload();
 
 		DestroyWindow(hWnd);
-
 	}	break;
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);

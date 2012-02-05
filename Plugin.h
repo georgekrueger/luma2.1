@@ -28,6 +28,8 @@ public:
 
 	void Process(float** buffer, unsigned long numFrames);
 
+	unsigned short GetNumOutputs();
+
 	AEffect* GetVstEffect() { return effect; }
 
 private:

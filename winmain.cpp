@@ -17,6 +17,8 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
                             const PaStreamCallbackTimeInfo* timeInfo,
                             PaStreamCallbackFlags statusFlags,
                             void *userData );
+bool StartAudio();
+bool StopAudio();
 
 static const unsigned long AUDIO_SAMPLE_RATE = 44100;
 static const int AUDIO_OUTPUT_CHANNELS = 2;
@@ -46,7 +48,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
 	//lua_State* luaState_ = luaL_newstate();
 	
-	/*Pattern myPattern(1000);
+	Pattern myPattern(1000);
 	WeightedEvent noteOn;
 	WeightedEvent rest;
 	rest.type = REST;
@@ -101,10 +103,10 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	myPattern2.Add(noteOn);
 	myPattern2.Add(rest);
 
-	gTrack.AddPattern(myPattern2, BAR);*/
+	gTrack.AddPattern(myPattern2, BAR);
 
 	// start the audio after everything has been initialized
-	//StartAudio();
+	StartAudio();
 
 	/*cout << "Test" << endl;
 
@@ -218,15 +220,14 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
                             PaStreamCallbackFlags statusFlags,
                             void *userData )
 {
-	/*
     (void) inputBuffer;
 
-	float timeElapsedInMs = framesPerBuffer / AUDIO_SAMPLE_RATE * 1000;
+	float timeElapsedInMs = framesPerBuffer / (float)AUDIO_SAMPLE_RATE * 1000;
 
-	VstInt32 numOutputs = effect->numOutputs;
+	unsigned short numOutputs = gPlugin.GetNumOutputs();
 	
 	float** vstOut = (float**)vstOutputBuffer;
-	//effect->processReplacing (effect, NULL, vstOut, framesPerBuffer);
+	gPlugin.Process(vstOut, framesPerBuffer);
 
 
 	float *out = (float*)outputBuffer;
@@ -236,7 +237,7 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 	}
 	
 	// Process events
-	//gTrack.Update(0, timeElapsedInMs, songEvents, songOffsets);
+	gTrack.Update(0, timeElapsedInMs, songEvents, songOffsets);
 
 	// convert offsets to samples
 	for (int j=0; j<songEvents.size(); j++) {
@@ -270,17 +271,16 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 		float offset = songOffsets[j];
 
 		if (e.type == NOTE_OFF) {
-			PlayNoteOff(effect, offset, e.pitch);
+			gPlugin.PlayNoteOff(offset, e.pitch);
 		}
 		else if (e.type == NOTE_ON) {
-			int noteLengthInSamples = e.length / 1000 * AUDIO_SAMPLE_RATE;
-			PlayNoteOn(effect, offset, e.pitch, e.velocity, noteLengthInSamples);
+			int noteLengthInSamples = int(e.length / 1000 * AUDIO_SAMPLE_RATE);
+			gPlugin.PlayNoteOn(offset, e.pitch, e.velocity, noteLengthInSamples);
 		}
 	}
 	songEvents.clear();
 	songOffsets.clear();
 	
 	// End process events
-	*/
     return 0;
 }
