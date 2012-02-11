@@ -39,7 +39,6 @@ using namespace std;
 
 typedef AEffect* (*PluginEntryProc) (audioMasterCallback audioMaster);
 static VstIntPtr VSTCALLBACK HostCallback (AEffect* effect, VstInt32 opcode, VstInt32 index, VstIntPtr value, void* ptr, float opt);
-void checkEffectProperties (AEffect* effect);
 static void checkEffectProperties (AEffect* effect);
 static void checkEffectProcessing (AEffect* effect);
 static bool checkPlatform ();
@@ -129,7 +128,43 @@ Plugin::~Plugin()
 	delete globalEvent;
 }
 
-bool Plugin::Load(string fileName)
+bool Plugin::SetProgram(string program)
+{
+	// Iterate programs...
+	for (VstInt32 i = 0; i < effect->numPrograms; i++) {
+		string programName;
+		if (GetProgramName(i, programName)) {
+			if (programName == program) {
+				effect->dispatcher (effect, effSetProgram, 0, i, 0, 0.0f);
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+bool Plugin::GetProgramName (int programNumber, string& programName)
+{
+    char strProgramName [256];
+
+    if (!effect->dispatcher (effect, effGetProgramNameIndexed, programNumber, 0, strProgramName, 0.0f))
+    {
+       // the hard way - have to set each program to find it's name
+       int tempPreset = effect->dispatcher (effect, effGetProgram, 0, 0, 0, 0.0f);
+       effect->dispatcher (effect, effSetProgram, 0, programNumber, 0, 0.0f);
+       effect->dispatcher (effect, effGetProgramName, 0, 0, strProgramName, 0.0f);
+       effect->dispatcher (effect, effSetProgram, 0, tempPreset, 0, 0.0f);
+    }
+
+	if (strlen(strProgramName) > 0) {
+		programName = strProgramName;
+		return true;
+	}
+
+    return false;
+}
+
+bool Plugin::Load(string fileName, std::string program)
 {
 	if (!checkPlatform ()) {
 		cout << "Platform verification failed! Please check your Compiler Settings!" << endl;
@@ -169,6 +204,21 @@ bool Plugin::Load(string fileName)
 
 	// sanity check
 	checkEffectProperties (effect);
+
+	if (program.length() > 0) {
+		SetProgram(program);
+	}
+
+	bool usesChunks = (effect->flags & effFlagsProgramChunks);
+	cout << usesChunks << endl;
+
+	//void* chunkData;
+	//static const VstInt32 PRESET_CHUNK =  1;
+	//static const VstInt32 BANK_CHUNK =  0;
+	//VstInt32 chunkSize = effect->dispatcher (effect, effGetChunk, BANK_CHUNK, 0, &chunkData, 0);
+	//cout << chunkSize << endl;
+	//VstIntPtr ret = effect->dispatcher (effect, effSetChunk, BANK_CHUNK, chunkSize, &chunkData, 0);
+	//cout << ret << endl;
 
 	mLoaded = true;
 
@@ -313,6 +363,26 @@ void Plugin::PlayNoteOff(float deltaFrames, short pitch)
 	effect->dispatcher( effect, effProcessEvents, 0, 0, vstEvents, 0);
 }
 
+void Plugin::ProgramChange(float deltaFrames, char programNumber)
+{
+	globalEvent->type = kVstMidiType;
+	globalEvent->byteSize = sizeof(VstMidiEvent);
+	globalEvent->deltaFrames = deltaFrames;	///< sample frames related to the current block start sample position
+	globalEvent->flags = 0;			///< @see VstMidiEventFlags
+	globalEvent->noteLength = 0;	///< (in sample frames) of entire note, if available, else 0
+	globalEvent->noteOffset = 0;	///< offset (in sample frames) into note from note start if available, else 0
+	globalEvent->midiData[0] = (char)0xC0;
+	globalEvent->midiData[1] = programNumber;
+	globalEvent->midiData[2] = 0;
+	globalEvent->detune = 0;			///< -64 to +63 cents; for scales other than 'well-tempered' ('microtuning')
+	globalEvent->noteOffVelocity = 0;	///< Note Off Velocity [0, 127]
+	
+	vstEvents->numEvents = 1;
+	vstEvents->events[0] = (VstEvent*)globalEvent;
+	
+	effect->dispatcher( effect, effProcessEvents, 0, 0, vstEvents, 0);
+}
+
 void Plugin::Process(float** buffer, unsigned long numFrames)
 {
 	effect->processReplacing(effect, NULL, buffer, numFrames);
@@ -321,6 +391,12 @@ void Plugin::Process(float** buffer, unsigned long numFrames)
 unsigned short Plugin::GetNumOutputs()
 {
 	return effect->numOutputs;
+}
+
+bool Plugin::SetPreset(std::string)
+{
+	effect->dispatcher( effect, effSetProgram, 0, 0, 0, 0);
+	return true;
 }
 
 //-------------------------------------------------------------------------------------------------------
@@ -360,18 +436,6 @@ void checkEffectProperties (AEffect* effect)
 
 	printf ("numPrograms = %d\nnumParams = %d\nnumInputs = %d\nnumOutputs = %d\n\n", 
 			effect->numPrograms, effect->numParams, effect->numInputs, effect->numOutputs);
-
-	// Iterate programs...
-	for (VstInt32 progIndex = 0; progIndex < effect->numPrograms; progIndex++)
-	{
-		char progName[256] = {0};
-		if (!effect->dispatcher (effect, effGetProgramNameIndexed, progIndex, 0, progName, 0))
-		{
-			effect->dispatcher (effect, effSetProgram, 0, progIndex, 0, 0); // Note: old program not restored here!
-			effect->dispatcher (effect, effGetProgramName, 0, 0, progName, 0);
-		}
-		printf ("Program %03d: %s\n", progIndex, progName);
-	}
 
 	printf ("\n");
 

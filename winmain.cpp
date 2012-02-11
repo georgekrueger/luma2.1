@@ -44,12 +44,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	songOffsets.reserve(100);
 
 	Plugin* plug = new Plugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
-	plug->Load("C:\\Program Files\\VSTPlugins\\Circle.dll");
+	plug->Load("C:\\Program Files\\VSTPlugins\\Abakos_2\\HERCs Abakos\\Abakos.dll", "Sun Cult [KEYS]");
+
 	plug->Show(hInstance, nCmdShow);
 	plugins.push_back(plug);
 
 	plug = new Plugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
-	plug->Load("C:\\Program Files\\VSTPlugins\\Circle.dll");
+	plug->Load("C:\\Program Files\\VSTPlugins\\4FrontPiano\\4Front Piano.dll");
 	plug->Show(hInstance, nCmdShow);
 	plugins.push_back(plug);
 
@@ -70,7 +71,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	noteOn.type = NOTE_ON;
 
 	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 3, 1));
-	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 3, 3));
+	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 3, 4));
 	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 3, 5));
 	noteOn.pitchWeights.push_back(1);
 	noteOn.pitchWeights.push_back(1);

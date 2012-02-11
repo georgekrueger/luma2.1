@@ -18,17 +18,23 @@ public:
 	Plugin(unsigned long sampleRate, unsigned long blockSize);
 	~Plugin();
 
-	bool Load(std::string name);
+	bool Load(std::string name, std::string program = "");
 	bool Unload();
 	bool Show(HINSTANCE win, int nCmdShow);
 	bool Hide();
 
+	bool SetPreset(std::string);
+
 	void PlayNoteOn(float deltaFrames, short pitch, short velocity, short length);
 	void PlayNoteOff(float deltaFrames, short pitch);
+	void ProgramChange(float deltaFrames, char programNumber);
 
 	void Process(float** buffer, unsigned long numFrames);
 
 	unsigned short GetNumOutputs();
+
+	bool GetProgramName (int programNumber, std::string& programName);
+	bool SetProgram(std::string program);
 
 	AEffect* GetVstEffect() { return effect; }
 
