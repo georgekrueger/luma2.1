@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "luainc.h"
+#include "luafuncs.h"
 #include "music.h"
 #include "Plugin.h"
 #include "portaudio.h"
@@ -125,21 +126,16 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	// start the audio after everything has been initialized
 	StartAudio();
 
-	/*cout << "Test" << endl;
+	// init lua
+	lua_State* luaState = luaL_newstate();
+	luaL_openlibs(luaState);
+	lua_register(luaState, "luma_rand", luma_rand);
 
-	vector<Event> mySongEvents;
-	vector<float> mySongOffsets;
- 	for (int i=0; i<1000; i++)
-	{
-		myTrack.Update(0, 64, mySongEvents, mySongOffsets);
-		for (int j=0; j<mySongEvents.size(); j++) {
-			cout << "Offset: " << mySongOffsets[j] << " ";
-			mySongEvents[j].Print(cout);
-			cout << endl;
-		}
-		mySongEvents.clear();
-		mySongOffsets.clear();
-	}*/
+	cout << "running script" << endl;
+	char* scriptName = "C:\\Documents and Settings\\George\\My Documents\\luma2.1\\input.lua";
+	if (luaL_dofile(luaState, scriptName) != 0) {
+		cout << "ERROR: " << lua_tostring(luaState, -1) << endl;
+	}
 
     // Main message loop:
     MSG msg;

@@ -136,6 +136,7 @@
     <ClInclude Include="..\..\vstsdk2.4\pluginterfaces\vst2.x\aeffect.h" />
     <ClInclude Include="..\..\vstsdk2.4\pluginterfaces\vst2.x\aeffectx.h" />
     <ClInclude Include="..\..\vstsdk2.4\pluginterfaces\vst2.x\vstfxstore.h" />
+    <ClInclude Include="..\luafuncs.h" />
     <ClInclude Include="..\luainc.h" />
     <ClInclude Include="..\music.h" />
     <ClInclude Include="..\Plugin.h" />
