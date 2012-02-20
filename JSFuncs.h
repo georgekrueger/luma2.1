@@ -3,6 +3,7 @@
 
 #include <v8.h>
 
+v8::Persistent<v8::Context> CreateV8Context();
 bool ExecuteString(v8::Handle<v8::String> source,
                    v8::Handle<v8::Value> name,
                    bool print_result,

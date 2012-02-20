@@ -130,12 +130,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	// init v8
 	v8::HandleScope handle_scope;
 
-	v8::Handle<v8::ObjectTemplate> global = v8::ObjectTemplate::New();
-
-	// Bind the global 'print' function to the C++ Print callback.
-	global->Set(v8::String::New("print"), v8::FunctionTemplate::New(Print));
-
-	v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
+	v8::Persistent<v8::Context> context = CreateV8Context();
 
 	if (context.IsEmpty()) {
 		printf("Error creating context\n");

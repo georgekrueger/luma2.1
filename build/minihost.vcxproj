@@ -137,19 +137,17 @@
     <ClInclude Include="..\..\vstsdk2.4\pluginterfaces\vst2.x\aeffectx.h" />
     <ClInclude Include="..\..\vstsdk2.4\pluginterfaces\vst2.x\vstfxstore.h" />
     <ClInclude Include="..\JSFuncs.h" />
-    <ClInclude Include="..\luafuncs.h" />
-    <ClInclude Include="..\luainc.h" />
     <ClInclude Include="..\music.h" />
     <ClInclude Include="..\Plugin.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\JSFuncs.cpp" />
+    <ClCompile Include="..\music.cpp" />
     <ClCompile Include="..\Plugin.cpp" />
     <ClCompile Include="..\winmain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\input.js" />
-    <None Include="..\input.txt" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

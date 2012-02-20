@@ -1,6 +1,32 @@
 
 #include "JSFuncs.h"
+#include "music.h"
 #include <assert.h>
+
+using namespace v8;
+
+// Note
+static Persistent<ObjectTemplate> gNoteTemplate;
+v8::Handle<v8::Value> MakeNote(const v8::Arguments& args);
+Handle<ObjectTemplate> MakeNoteTemplate();
+WeightedEvent* UnwrapNote(Handle<Object> obj);
+Handle<Object> WrapNote();
+Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info);
+
+Persistent<Context> CreateV8Context()
+{
+	v8::HandleScope handle_scope;
+
+	v8::Handle<v8::ObjectTemplate> global = v8::ObjectTemplate::New();
+
+	// Bind the global 'print' function to the C++ Print callback.
+	global->Set(v8::String::New("print"), v8::FunctionTemplate::New(Print));
+	global->Set(v8::String::New("note"), v8::FunctionTemplate::New(MakeNote));
+
+	v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
+
+	return context;
+}
 
 // The callback that is invoked by v8 whenever the JavaScript 'print'
 // function is called.  Prints its arguments on stdout separated by
@@ -119,4 +145,82 @@ void ReportException(v8::TryCatch* try_catch) {
       printf("%s\n", stack_trace_string);
     }
   }
+}
+
+v8::Handle<v8::Value> MakeNote(const v8::Arguments& args) {
+
+	HandleScope handle_scope;
+
+	Handle<Object> note = WrapNote();
+	return note;
+}
+
+Handle<ObjectTemplate> MakeNoteTemplate() {
+  HandleScope handle_scope;
+
+  Handle<ObjectTemplate> result = ObjectTemplate::New();
+  result->SetInternalFieldCount(1);
+
+  // Add accessors for each of the fields of the request.
+  result->SetAccessor(String::NewSymbol("pitch"), GetPitch);
+  //result->SetAccessor(String::NewSymbol("referrer"), GetReferrer);
+  //result->SetAccessor(String::NewSymbol("host"), GetHost);
+  //result->SetAccessor(String::NewSymbol("userAgent"), GetUserAgent);
+
+  // Again, return the result through the current handle scope.
+  return handle_scope.Close(result);
+}
+
+/**
+ * Utility function that extracts the C++ http request object from a
+ * wrapper object.
+ */
+WeightedEvent* UnwrapNote(Handle<Object> obj) {
+  Handle<External> field = Handle<External>::Cast(obj->GetInternalField(0));
+  void* ptr = field->Value();
+  return static_cast<WeightedEvent*>(ptr);
+}
+
+Handle<Object> WrapNote() {
+  // Handle scope for temporary handles.
+  HandleScope handle_scope;
+
+  // Fetch the template for creating JavaScript http request wrappers.
+  // It only has to be created once, which we do on demand.
+  if (gNoteTemplate.IsEmpty()) {
+    Handle<ObjectTemplate> raw_template = MakeNoteTemplate();
+    gNoteTemplate = Persistent<ObjectTemplate>::New(raw_template);
+  }
+  Handle<ObjectTemplate> templ = gNoteTemplate;
+
+  // Create an empty http request wrapper.
+  Handle<Object> result = templ->NewInstance();
+
+  WeightedEvent* note = new WeightedEvent();
+  note->type = NOTE_ON;
+  note->pitch.push_back(GetMidiPitch(CMAJ, 4, 1));
+
+  // Wrap the raw C++ pointer in an External so it can be referenced
+  // from within JavaScript.
+  Handle<External> notePtr = External::New(note);
+
+  // Store the request pointer in the JavaScript wrapper.
+  result->SetInternalField(0, notePtr);
+
+  // Return the result through the current handle scope.  Since each
+  // of these handles will go away when the handle scope is deleted
+  // we need to call Close to let one, the result, escape into the
+  // outer handle scope.
+  return handle_scope.Close(result);
+}
+
+Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info) {
+  // Extract the C++ request object from the JavaScript wrapper.
+  WeightedEvent* event = UnwrapNote(info.Holder());
+
+  // Fetch the path.
+  short pitch = event->pitch.at(0);
+
+  // Wrap the result in a JavaScript string and return it.
+  return Integer::New(pitch);
 }
