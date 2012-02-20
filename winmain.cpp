@@ -4,12 +4,13 @@
 #include <windows.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
-#include "luainc.h"
-#include "luafuncs.h"
 #include "music.h"
 #include "Plugin.h"
 #include "portaudio.h"
+
+#include "JSFuncs.h"
 
 using namespace std;
 
@@ -126,16 +127,37 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	// start the audio after everything has been initialized
 	StartAudio();
 
-	// init lua
-	lua_State* luaState = luaL_newstate();
-	luaL_openlibs(luaState);
-	lua_register(luaState, "luma_rand", luma_rand);
+	// init v8
+	v8::HandleScope handle_scope;
 
-	cout << "running script" << endl;
-	char* scriptName = "C:\\Documents and Settings\\George\\My Documents\\luma2.1\\input.lua";
-	if (luaL_dofile(luaState, scriptName) != 0) {
-		cout << "ERROR: " << lua_tostring(luaState, -1) << endl;
+	v8::Handle<v8::ObjectTemplate> global = v8::ObjectTemplate::New();
+
+	// Bind the global 'print' function to the C++ Print callback.
+	global->Set(v8::String::New("print"), v8::FunctionTemplate::New(Print));
+
+	v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
+
+	if (context.IsEmpty()) {
+		printf("Error creating context\n");
+		return 1;
 	}
+	context->Enter();
+
+	// execute script
+	const char* str = "C:\\Documents and Settings\\George\\My Documents\\luma2.1\\input.js";
+	v8::Handle<v8::String> file_name = v8::String::New(str);
+    v8::Handle<v8::String> source = ReadFile(str);
+    if (source.IsEmpty()) {
+		printf("Error reading '%s'\n", str);
+    }
+	else {
+		if (!ExecuteString(source, file_name, false, true)) return 1;
+	}
+
+	// clean up context
+	context->Exit();
+	context.Dispose();
+	v8::V8::Dispose();
 
     // Main message loop:
     MSG msg;
