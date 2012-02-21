@@ -1,2 +1,2 @@
 
-print("hello world!!!", note().pitch);
+note("CMAJ", 4, 1, 100, [0.5, 0.5, 1, 0.5])

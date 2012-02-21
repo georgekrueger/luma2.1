@@ -16,6 +16,9 @@ enum Scale
 	CMIN,
 	NO_SCALE,
 };
+const int NumScales = NO_SCALE;
+
+extern const char* ScaleStrings[NumScales];
 
 enum PatternQuantize
 {

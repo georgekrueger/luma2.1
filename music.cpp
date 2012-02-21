@@ -11,14 +11,18 @@ float BEAT_LENGTH = 1 / BPM * 60000;
 
 const unsigned short NumEventTypes = NONE;
 
+const char* ScaleStrings[NumScales] = 
+{
+	"CMAJ",
+	"CMIN"
+};
+
 const char* EventTypeNames[NumEventTypes] =
 {
 	"NOTE_ON",
 	"NOTE_OFF",
 	"REST",
 };
-
-const int NumScales = NO_SCALE;
 
 struct ScaleInfo
 {

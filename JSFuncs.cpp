@@ -148,27 +148,55 @@ void ReportException(v8::TryCatch* try_catch) {
 }
 
 v8::Handle<v8::Value> MakeNote(const v8::Arguments& args) {
-
 	HandleScope handle_scope;
+
+	if (args.Length() != 5) {
+		cout << "Error creating a note: " << endl;
+	}
+
+	v8::String::Utf8Value str(args[0]);
+	const char* scaleStr = ToCString(str);
+	Scale scale = NO_SCALE;
+	for (int i=0; i<NumScales; i++) {
+		if (strcmp(scaleStr, ScaleStrings[i]) == 0) {
+			scale = (Scale)i;
+			break;
+		}
+	}
+	if (scale == NO_SCALE) {
+		cout << "Invalid scale: " << scaleStr << endl;
+		scale = CMAJ;
+	}
+	int octave = args[1]->Int32Value();
+	int degree = args[2]->Int32Value();
+	int velocity = args[3]->Int32Value();
+
+	if (args[4]->IsArray()) {
+		Array* arr = Array::Cast(args[4].Cast());
+		for (int i=0; i<arr->Length(); i++) {
+			Local<Object> elem = arr->CloneElementAt(i);
+		}
+	}
+	int length = args[4]->Int32Value();
 
 	Handle<Object> note = WrapNote();
 	return note;
 }
 
 Handle<ObjectTemplate> MakeNoteTemplate() {
-  HandleScope handle_scope;
+	HandleScope handle_scope;
 
-  Handle<ObjectTemplate> result = ObjectTemplate::New();
-  result->SetInternalFieldCount(1);
+	Handle<ObjectTemplate> result = ObjectTemplate::New();
+	result->SetInternalFieldCount(1);
 
-  // Add accessors for each of the fields of the request.
-  result->SetAccessor(String::NewSymbol("pitch"), GetPitch);
-  //result->SetAccessor(String::NewSymbol("referrer"), GetReferrer);
-  //result->SetAccessor(String::NewSymbol("host"), GetHost);
-  //result->SetAccessor(String::NewSymbol("userAgent"), GetUserAgent);
+	// Add accessors for each of the fields of the request.
+	result->SetAccessor(String::NewSymbol("pitch"), GetPitch);
+	//result->SetAccessor(String::NewSymbol("referrer"), GetReferrer);
+	//result->SetAccessor(String::NewSymbol("host"), GetHost);
+	//result->SetAccessor(String::NewSymbol("userAgent"), GetUserAgent);
 
-  // Again, return the result through the current handle scope.
-  return handle_scope.Close(result);
+	// Again, return the result through the current handle scope.
+	return handle_scope.Close(result);
 }
 
 /**
@@ -176,51 +204,51 @@ Handle<ObjectTemplate> MakeNoteTemplate() {
  * wrapper object.
  */
 WeightedEvent* UnwrapNote(Handle<Object> obj) {
-  Handle<External> field = Handle<External>::Cast(obj->GetInternalField(0));
-  void* ptr = field->Value();
-  return static_cast<WeightedEvent*>(ptr);
+	Handle<External> field = Handle<External>::Cast(obj->GetInternalField(0));
+	void* ptr = field->Value();
+	return static_cast<WeightedEvent*>(ptr);
 }
 
 Handle<Object> WrapNote() {
-  // Handle scope for temporary handles.
-  HandleScope handle_scope;
+	// Handle scope for temporary handles.
+	HandleScope handle_scope;
 
-  // Fetch the template for creating JavaScript http request wrappers.
-  // It only has to be created once, which we do on demand.
-  if (gNoteTemplate.IsEmpty()) {
-    Handle<ObjectTemplate> raw_template = MakeNoteTemplate();
-    gNoteTemplate = Persistent<ObjectTemplate>::New(raw_template);
-  }
-  Handle<ObjectTemplate> templ = gNoteTemplate;
+	// Fetch the template for creating JavaScript http request wrappers.
+	// It only has to be created once, which we do on demand.
+	if (gNoteTemplate.IsEmpty()) {
+	Handle<ObjectTemplate> raw_template = MakeNoteTemplate();
+	gNoteTemplate = Persistent<ObjectTemplate>::New(raw_template);
+	}
+	Handle<ObjectTemplate> templ = gNoteTemplate;
 
-  // Create an empty http request wrapper.
-  Handle<Object> result = templ->NewInstance();
+	// Create an empty http request wrapper.
+	Handle<Object> result = templ->NewInstance();
 
-  WeightedEvent* note = new WeightedEvent();
-  note->type = NOTE_ON;
-  note->pitch.push_back(GetMidiPitch(CMAJ, 4, 1));
+	WeightedEvent* note = new WeightedEvent();
+	note->type = NOTE_ON;
+	note->pitch.push_back(GetMidiPitch(CMAJ, 4, 1));
 
-  // Wrap the raw C++ pointer in an External so it can be referenced
-  // from within JavaScript.
-  Handle<External> notePtr = External::New(note);
+	// Wrap the raw C++ pointer in an External so it can be referenced
+	// from within JavaScript.
+	Handle<External> notePtr = External::New(note);
 
-  // Store the request pointer in the JavaScript wrapper.
-  result->SetInternalField(0, notePtr);
+	// Store the request pointer in the JavaScript wrapper.
+	result->SetInternalField(0, notePtr);
 
-  // Return the result through the current handle scope.  Since each
-  // of these handles will go away when the handle scope is deleted
-  // we need to call Close to let one, the result, escape into the
-  // outer handle scope.
-  return handle_scope.Close(result);
+	// Return the result through the current handle scope.  Since each
+	// of these handles will go away when the handle scope is deleted
+	// we need to call Close to let one, the result, escape into the
+	// outer handle scope.
+	return handle_scope.Close(result);
 }
 
 Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info) {
-  // Extract the C++ request object from the JavaScript wrapper.
-  WeightedEvent* event = UnwrapNote(info.Holder());
+	// Extract the C++ request object from the JavaScript wrapper.
+	WeightedEvent* event = UnwrapNote(info.Holder());
 
-  // Fetch the path.
-  short pitch = event->pitch.at(0);
+	// Fetch the path.
+	short pitch = event->pitch.at(0);
 
-  // Wrap the result in a JavaScript string and return it.
-  return Integer::New(pitch);
+	// Wrap the result in a JavaScript string and return it.
+	return Integer::New(pitch);
 }
