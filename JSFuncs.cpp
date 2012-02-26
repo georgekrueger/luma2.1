@@ -2,6 +2,8 @@
 #include "JSFuncs.h"
 #include "music.h"
 #include <assert.h>
+#include <iostream>
+#include <sstream>
 
 using namespace v8;
 
@@ -10,7 +12,7 @@ static Persistent<ObjectTemplate> gNoteTemplate;
 v8::Handle<v8::Value> MakeNote(const v8::Arguments& args);
 Handle<ObjectTemplate> MakeNoteTemplate();
 WeightedEvent* UnwrapNote(Handle<Object> obj);
-Handle<Object> WrapNote();
+Handle<Object> WrapNote(WeightedEvent& event);
 Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info);
 
 Persistent<Context> CreateV8Context()
@@ -147,18 +149,24 @@ void ReportException(v8::TryCatch* try_catch) {
   }
 }
 
-v8::Handle<v8::Value> MakeNote(const v8::Arguments& args) {
-	HandleScope handle_scope;
+unsigned long WEIGHT_SCALE = 1000;
 
-	if (args.Length() != 5) {
-		cout << "Error creating a note: " << endl;
-	}
+void ExtractPitch(Handle<Value> val, Scale& scale, short& octave, short& degree)
+{
+	scale = NO_SCALE;
+	octave = 1;
+	degree = 1;
 
-	v8::String::Utf8Value str(args[0]);
-	const char* scaleStr = ToCString(str);
-	Scale scale = NO_SCALE;
+	v8::String::Utf8Value str(val);
+	string pitchStr = string(ToCString(str));
+	size_t firstSplit = pitchStr.find_first_of('_');
+	size_t secondSplit = pitchStr.find_last_of('_');
+	string scaleStr = pitchStr.substr(0, firstSplit);
+	string octaveStr = pitchStr.substr(firstSplit+1, 1);
+	string degreeStr = pitchStr.substr(secondSplit+1, 1);
+	cout << scaleStr << " " << octaveStr << " " << degreeStr << endl;
 	for (int i=0; i<NumScales; i++) {
-		if (strcmp(scaleStr, ScaleStrings[i]) == 0) {
+		if (scaleStr.compare(ScaleStrings[i]) == 0) {
 			scale = (Scale)i;
 			break;
 		}
@@ -167,19 +175,128 @@ v8::Handle<v8::Value> MakeNote(const v8::Arguments& args) {
 		cout << "Invalid scale: " << scaleStr << endl;
 		scale = CMAJ;
 	}
-	int octave = args[1]->Int32Value();
-	int degree = args[2]->Int32Value();
-	int velocity = args[3]->Int32Value();
+	stringstream octaveStream(octaveStr);
+	octaveStream >> octave;
+	stringstream degreeStream(degreeStr);
+	degreeStream >> degree;
+}
 
-	if (args[4]->IsArray()) {
-		Array* arr = Array::Cast(args[4].Cast());
+Handle<Value> MakeNote(const Arguments& args) {
+	HandleScope handle_scope;
+
+	if (args.Length() != 3) {
+		cout << "Error creating a note: " << endl;
+	}
+	
+	Local<Value> arg;
+
+	WeightedEvent event;
+
+	arg = args[0];
+	if (arg->IsArray()) {
+		Array* arr = Array::Cast(*arg);
 		for (int i=0; i<arr->Length(); i++) {
-			Local<Object> elem = arr->CloneElementAt(i);
+			Local<Value> elem = arr->Get(i);
+			if (elem->IsArray()) {
+				// weighted length
+				Array* pair = Array::Cast(*elem);
+
+				Scale scale;
+				short octave;
+				short degree;
+				ExtractPitch(pair->Get(0), scale, octave, degree);
+				cout << "Scale: " << scale << " octave: " << octave << " degree: " << degree << endl;
+
+				double weight = pair->Get(1)->NumberValue();
+				event.pitch.push_back(GetMidiPitch(scale, octave, degree));
+				event.pitchWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
+			}
+			else if (elem->IsNumber()) {
+				
+				Scale scale;
+				short octave;
+				short degree;
+				ExtractPitch(elem, scale, octave, degree);
+				cout << "Scale: " << scale << " octave: " << octave << " degree: " << degree << endl;
+				
+				event.pitch.push_back(GetMidiPitch(scale, octave, degree));
+				event.pitchWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+			}
+			else {
+				// error
+			}
 		}
 	}
-	int length = args[4]->Int32Value();
+	else {
+		Scale scale;
+		short octave;
+		short degree;
+		ExtractPitch(arg, scale, octave, degree);
+		cout << "Scale: " << scale << " octave: " << octave << " degree: " << degree << endl;
+				
+		event.pitch.push_back(GetMidiPitch(scale, octave, degree));
+		event.pitchWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+	}
 
-	Handle<Object> note = WrapNote();
+	arg = args[1];
+	if (arg->IsArray()) {
+		Array* arr = Array::Cast(*arg);
+		for (int i=0; i<arr->Length(); i++) {
+			Local<Value> elem = arr->Get(i);
+			if (elem->IsArray()) {
+				// weighted length
+				Array* pair = Array::Cast(*elem);
+				short value = pair->Get(0)->Uint32Value();
+				double weight = pair->Get(1)->NumberValue();
+				event.velocity.push_back(value);
+				event.velocityWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
+			}
+			else if (elem->IsNumber()) {
+				// just length
+				short value = elem->Uint32Value();
+				event.velocity.push_back(value);
+				event.velocityWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+			}
+			else {
+				// error
+			}
+		}
+	}
+	else {
+		event.velocity.push_back(arg->NumberValue());
+		event.velocityWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+	}
+
+	arg = args[2];
+	if (arg->IsArray()) {
+		Array* arr = Array::Cast(*arg);
+		for (int i=0; i<arr->Length(); i++) {
+			Local<Value> elem = arr->Get(i);
+			if (elem->IsArray()) {
+				// weighted length
+				Array* pair = Array::Cast(*elem);
+				double value = pair->Get(0)->NumberValue();
+				double weight = pair->Get(1)->NumberValue();
+				event.length.push_back(value);
+				event.lengthWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
+			}
+			else if (elem->IsNumber()) {
+				// just length
+				double value = elem->NumberValue();
+				event.length.push_back(value);
+				event.lengthWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+			}
+			else {
+				// error
+			}
+		}
+	}
+	else {
+		event.length.push_back(arg->NumberValue());
+		event.lengthWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+	}
+
+	Handle<Object> note = WrapNote(event);
 	return note;
 }
 
@@ -209,7 +326,7 @@ WeightedEvent* UnwrapNote(Handle<Object> obj) {
 	return static_cast<WeightedEvent*>(ptr);
 }
 
-Handle<Object> WrapNote() {
+Handle<Object> WrapNote(WeightedEvent& event) {
 	// Handle scope for temporary handles.
 	HandleScope handle_scope;
 
@@ -224,9 +341,8 @@ Handle<Object> WrapNote() {
 	// Create an empty http request wrapper.
 	Handle<Object> result = templ->NewInstance();
 
-	WeightedEvent* note = new WeightedEvent();
+	WeightedEvent* note = new WeightedEvent(event);
 	note->type = NOTE_ON;
-	note->pitch.push_back(GetMidiPitch(CMAJ, 4, 1));
 
 	// Wrap the raw C++ pointer in an External so it can be referenced
 	// from within JavaScript.
@@ -243,7 +359,7 @@ Handle<Object> WrapNote() {
 }
 
 Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info) {
-	// Extract the C++ request object from the JavaScript wrapper.
+	// Extract the C++ object from the JavaScript wrapper.
 	WeightedEvent* event = UnwrapNote(info.Holder());
 
 	// Fetch the path.

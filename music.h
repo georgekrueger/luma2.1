@@ -18,7 +18,7 @@ enum Scale
 };
 const int NumScales = NO_SCALE;
 
-extern const char* ScaleStrings[NumScales];
+extern const string ScaleStrings[NumScales];
 
 enum PatternQuantize
 {
@@ -45,7 +45,7 @@ public:
 
 	EventType     type;
 	vector<short> pitch;
-	vector<unsigned long> pitchWeights;
+	vector<unsigned long> pitchWeight;
 	vector<short> velocity;
 	vector<unsigned long> velocityWeight;
 	vector<float> length;

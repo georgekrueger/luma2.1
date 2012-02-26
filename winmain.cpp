@@ -75,9 +75,9 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 3, 1));
 	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 3, 4));
 	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 3, 5));
-	noteOn.pitchWeights.push_back(1);
-	noteOn.pitchWeights.push_back(1);
-	noteOn.pitchWeights.push_back(1);
+	noteOn.pitchWeight.push_back(1);
+	noteOn.pitchWeight.push_back(1);
+	noteOn.pitchWeight.push_back(1);
 
 	noteOn.velocity.push_back(50);
 	noteOn.velocity.push_back(100);
@@ -99,13 +99,13 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	rest.lengthWeight.push_back(1);
 
 	noteOn.pitch.clear();
-	noteOn.pitchWeights.clear();
+	noteOn.pitchWeight.clear();
 	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 6, 1));
 	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 6, 4));
 	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 6, 5));
-	noteOn.pitchWeights.push_back(1);
-	noteOn.pitchWeights.push_back(1);
-	noteOn.pitchWeights.push_back(1);
+	noteOn.pitchWeight.push_back(1);
+	noteOn.pitchWeight.push_back(1);
+	noteOn.pitchWeight.push_back(1);
 
 	noteOn.velocity.clear();
 	noteOn.velocityWeight.clear();

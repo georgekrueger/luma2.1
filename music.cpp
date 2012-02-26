@@ -11,7 +11,7 @@ float BEAT_LENGTH = 1 / BPM * 60000;
 
 const unsigned short NumEventTypes = NONE;
 
-const char* ScaleStrings[NumScales] = 
+const string ScaleStrings[NumScales] = 
 {
 	"CMAJ",
 	"CMIN"
@@ -75,7 +75,7 @@ void WeightedEvent::Print(ostream &stream)
 }
 
 short WeightedEvent::GetPitch() { 
-	unsigned long pick = WeightedChoose(pitchWeights);
+	unsigned long pick = WeightedChoose(pitchWeight);
 	return pitch[pick];
 }
 
