@@ -4,16 +4,23 @@
 #include <assert.h>
 #include <iostream>
 #include <sstream>
+#include <boost/variant.hpp>
 
 using namespace v8;
 
 // Note
 static Persistent<ObjectTemplate> gNoteTemplate;
+static Persistent<ObjectTemplate> gRestTemplate;
+static Persistent<ObjectTemplate> gPatternTemplate;
 v8::Handle<v8::Value> MakeNote(const v8::Arguments& args);
 Handle<ObjectTemplate> MakeNoteTemplate();
-WeightedEvent* UnwrapNote(Handle<Object> obj);
-Handle<Object> WrapNote(WeightedEvent& event);
+v8::Handle<v8::Value> MakeRest(const v8::Arguments& args);
+Handle<ObjectTemplate> MakeRestTemplate();
+v8::Handle<v8::Value> MakePattern(const v8::Arguments& args);
+Handle<ObjectTemplate> MakePatternTemplate();
 Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info);
+
+typedef boost::variant<WeightedEvent*, Pattern*> JSObjectHolder;
 
 Persistent<Context> CreateV8Context()
 {
@@ -24,10 +31,22 @@ Persistent<Context> CreateV8Context()
 	// Bind the global 'print' function to the C++ Print callback.
 	global->Set(v8::String::New("print"), v8::FunctionTemplate::New(Print));
 	global->Set(v8::String::New("note"), v8::FunctionTemplate::New(MakeNote));
+	global->Set(v8::String::New("rest"), v8::FunctionTemplate::New(MakeRest));
+	global->Set(v8::String::New("pattern"), v8::FunctionTemplate::New(MakePattern));
 
 	v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
 
 	return context;
+}
+
+/**
+ * Utility function that extracts the C++ object from a JS wrapper object.
+ */
+template <class T>
+T* ExtractObjectFromJSWrapper(Handle<Object> obj) {
+	Handle<External> field = Handle<External>::Cast(obj->GetInternalField(0));
+	void* ptr = field->Value();
+	return static_cast<T*>(ptr);
 }
 
 // The callback that is invoked by v8 whenever the JavaScript 'print'
@@ -188,9 +207,10 @@ Handle<Value> MakeNote(const Arguments& args) {
 		cout << "Error creating a note: " << endl;
 	}
 	
-	Local<Value> arg;
+	WeightedEvent* noteEvent = new WeightedEvent;
+	noteEvent->type = NOTE_ON;
 
-	WeightedEvent event;
+	Local<Value> arg;
 
 	arg = args[0];
 	if (arg->IsArray()) {
@@ -208,8 +228,8 @@ Handle<Value> MakeNote(const Arguments& args) {
 				cout << "Scale: " << scale << " octave: " << octave << " degree: " << degree << endl;
 
 				double weight = pair->Get(1)->NumberValue();
-				event.pitch.push_back(GetMidiPitch(scale, octave, degree));
-				event.pitchWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
+				noteEvent->pitch.push_back(GetMidiPitch(scale, octave, degree));
+				noteEvent->pitchWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
 			}
 			else if (elem->IsNumber()) {
 				
@@ -219,8 +239,8 @@ Handle<Value> MakeNote(const Arguments& args) {
 				ExtractPitch(elem, scale, octave, degree);
 				cout << "Scale: " << scale << " octave: " << octave << " degree: " << degree << endl;
 				
-				event.pitch.push_back(GetMidiPitch(scale, octave, degree));
-				event.pitchWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+				noteEvent->pitch.push_back(GetMidiPitch(scale, octave, degree));
+				noteEvent->pitchWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
 			}
 			else {
 				// error
@@ -234,8 +254,8 @@ Handle<Value> MakeNote(const Arguments& args) {
 		ExtractPitch(arg, scale, octave, degree);
 		cout << "Scale: " << scale << " octave: " << octave << " degree: " << degree << endl;
 				
-		event.pitch.push_back(GetMidiPitch(scale, octave, degree));
-		event.pitchWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+		noteEvent->pitch.push_back(GetMidiPitch(scale, octave, degree));
+		noteEvent->pitchWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
 	}
 
 	arg = args[1];
@@ -248,14 +268,14 @@ Handle<Value> MakeNote(const Arguments& args) {
 				Array* pair = Array::Cast(*elem);
 				short value = pair->Get(0)->Uint32Value();
 				double weight = pair->Get(1)->NumberValue();
-				event.velocity.push_back(value);
-				event.velocityWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
+				noteEvent->velocity.push_back(value);
+				noteEvent->velocityWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
 			}
 			else if (elem->IsNumber()) {
 				// just length
 				short value = elem->Uint32Value();
-				event.velocity.push_back(value);
-				event.velocityWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+				noteEvent->velocity.push_back(value);
+				noteEvent->velocityWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
 			}
 			else {
 				// error
@@ -263,8 +283,8 @@ Handle<Value> MakeNote(const Arguments& args) {
 		}
 	}
 	else {
-		event.velocity.push_back(arg->NumberValue());
-		event.velocityWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+		noteEvent->velocity.push_back(arg->Uint32Value());
+		noteEvent->velocityWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
 	}
 
 	arg = args[2];
@@ -277,14 +297,14 @@ Handle<Value> MakeNote(const Arguments& args) {
 				Array* pair = Array::Cast(*elem);
 				double value = pair->Get(0)->NumberValue();
 				double weight = pair->Get(1)->NumberValue();
-				event.length.push_back(value);
-				event.lengthWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
+				noteEvent->length.push_back(value);
+				noteEvent->lengthWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
 			}
 			else if (elem->IsNumber()) {
 				// just length
 				double value = elem->NumberValue();
-				event.length.push_back(value);
-				event.lengthWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+				noteEvent->length.push_back(value);
+				noteEvent->lengthWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
 			}
 			else {
 				// error
@@ -292,61 +312,25 @@ Handle<Value> MakeNote(const Arguments& args) {
 		}
 	}
 	else {
-		event.length.push_back(arg->NumberValue());
-		event.lengthWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+		noteEvent->length.push_back(arg->NumberValue());
+		noteEvent->lengthWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
 	}
-
-	Handle<Object> note = WrapNote(event);
-	return note;
-}
-
-Handle<ObjectTemplate> MakeNoteTemplate() {
-	HandleScope handle_scope;
-
-	Handle<ObjectTemplate> result = ObjectTemplate::New();
-	result->SetInternalFieldCount(1);
-
-	// Add accessors for each of the fields of the request.
-	result->SetAccessor(String::NewSymbol("pitch"), GetPitch);
-	//result->SetAccessor(String::NewSymbol("referrer"), GetReferrer);
-	//result->SetAccessor(String::NewSymbol("host"), GetHost);
-	//result->SetAccessor(String::NewSymbol("userAgent"), GetUserAgent);
-
-	// Again, return the result through the current handle scope.
-	return handle_scope.Close(result);
-}
-
-/**
- * Utility function that extracts the C++ http request object from a
- * wrapper object.
- */
-WeightedEvent* UnwrapNote(Handle<Object> obj) {
-	Handle<External> field = Handle<External>::Cast(obj->GetInternalField(0));
-	void* ptr = field->Value();
-	return static_cast<WeightedEvent*>(ptr);
-}
-
-Handle<Object> WrapNote(WeightedEvent& event) {
-	// Handle scope for temporary handles.
-	HandleScope handle_scope;
 
 	// Fetch the template for creating JavaScript http request wrappers.
 	// It only has to be created once, which we do on demand.
 	if (gNoteTemplate.IsEmpty()) {
-	Handle<ObjectTemplate> raw_template = MakeNoteTemplate();
-	gNoteTemplate = Persistent<ObjectTemplate>::New(raw_template);
+		Handle<ObjectTemplate> raw_template = MakeNoteTemplate();
+		gNoteTemplate = Persistent<ObjectTemplate>::New(raw_template);
 	}
 	Handle<ObjectTemplate> templ = gNoteTemplate;
 
-	// Create an empty http request wrapper.
+	// Create an empty object wrapper.
 	Handle<Object> result = templ->NewInstance();
-
-	WeightedEvent* note = new WeightedEvent(event);
-	note->type = NOTE_ON;
 
 	// Wrap the raw C++ pointer in an External so it can be referenced
 	// from within JavaScript.
-	Handle<External> notePtr = External::New(note);
+	JSObjectHolder* eventHolder = new JSObjectHolder(noteEvent);
+	Handle<External> notePtr = External::New(eventHolder);
 
 	// Store the request pointer in the JavaScript wrapper.
 	result->SetInternalField(0, notePtr);
@@ -358,13 +342,183 @@ Handle<Object> WrapNote(WeightedEvent& event) {
 	return handle_scope.Close(result);
 }
 
+Handle<ObjectTemplate> MakeNoteTemplate() {
+	HandleScope handle_scope;
+
+	Handle<ObjectTemplate> result = ObjectTemplate::New();
+	result->SetInternalFieldCount(1);
+
+	// Add accessors for each of the fields of the request.
+	result->SetAccessor(String::NewSymbol("pitch"), GetPitch);
+
+	// Again, return the result through the current handle scope.
+	return handle_scope.Close(result);
+}
+
 Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info) {
 	// Extract the C++ object from the JavaScript wrapper.
-	WeightedEvent* event = UnwrapNote(info.Holder());
+	JSObjectHolder* event = ExtractObjectFromJSWrapper<JSObjectHolder>(info.Holder());
+	WeightedEvent* noteEvent = *boost::get<WeightedEvent*>(event);
 
 	// Fetch the path.
-	short pitch = event->pitch.at(0);
+	short pitch = noteEvent->pitch.at(0);
 
 	// Wrap the result in a JavaScript string and return it.
 	return Integer::New(pitch);
+}
+
+Handle<ObjectTemplate> MakeRestTemplate() {
+	HandleScope handle_scope;
+
+	Handle<ObjectTemplate> result = ObjectTemplate::New();
+	result->SetInternalFieldCount(1);
+
+	// Add accessors for each of the fields of the request.
+
+	// Again, return the result through the current handle scope.
+	return handle_scope.Close(result);
+}
+
+Handle<Value> MakeRest(const Arguments& args)
+{
+	HandleScope handle_scope;
+
+	WeightedEvent* restEvent = new WeightedEvent;
+	restEvent->type = REST;
+
+	Local<Value> arg = args[0];
+	if (arg->IsArray()) {
+		Array* arr = Array::Cast(*arg);
+		for (int i=0; i<arr->Length(); i++) {
+			Local<Value> elem = arr->Get(i);
+			if (elem->IsArray()) {
+				// weighted length
+				Array* pair = Array::Cast(*elem);
+				double value = pair->Get(0)->NumberValue();
+				double weight = pair->Get(1)->NumberValue();
+				restEvent->length.push_back(value);
+				restEvent->lengthWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
+			}
+			else if (elem->IsNumber()) {
+				// just length
+				double value = elem->NumberValue();
+				restEvent->length.push_back(value);
+				restEvent->lengthWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+			}
+			else {
+				// error
+			}
+		}
+	}
+	else {
+		restEvent->length.push_back(arg->NumberValue());
+		restEvent->lengthWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+	}
+
+	// Fetch the template for creating JavaScript http request wrappers.
+	// It only has to be created once, which we do on demand.
+	if (gRestTemplate.IsEmpty()) {
+		Handle<ObjectTemplate> raw_template = MakeRestTemplate();
+		gRestTemplate = Persistent<ObjectTemplate>::New(raw_template);
+	}
+	Handle<ObjectTemplate> templ = gRestTemplate;
+
+	// Create an empty object wrapper.
+	Handle<Object> result = templ->NewInstance();
+
+	// Wrap the raw C++ pointer in an External so it can be referenced
+	// from within JavaScript.
+	JSObjectHolder* eventHolder = new JSObjectHolder(restEvent);
+	Handle<External> ptr = External::New(eventHolder);
+
+	// Store the request pointer in the JavaScript wrapper.
+	result->SetInternalField(0, ptr);
+
+	// Return the result through the current handle scope.  Since each
+	// of these handles will go away when the handle scope is deleted
+	// we need to call Close to let one, the result, escape into the
+	// outer handle scope.
+	return handle_scope.Close(result); 
+}
+
+static Handle<Value> Play(const Arguments& args) {
+	HandleScope scope;
+	Local<Value> arg = args[0];
+	JSObjectHolder* holder = ExtractObjectFromJSWrapper<JSObjectHolder>(arg->ToObject());
+	Pattern** pattern = boost::get<Pattern*>(holder);
+	
+
+
+	return v8::Undefined();
+}
+
+Handle<ObjectTemplate> MakePatternTemplate() {
+	HandleScope handle_scope;
+
+	Handle<ObjectTemplate> result = ObjectTemplate::New();
+	result->SetInternalFieldCount(1);
+
+	// Add accessors for each of the fields of the request.
+	//result->SetAccessor(String::NewSymbol("pitch"), GetPitch);
+
+	// Again, return the result through the current handle scope.
+	return handle_scope.Close(result);
+}
+
+Handle<Value> MakePattern(const Arguments& args) {
+	HandleScope handle_scope;
+
+	Pattern* newPattern = new Pattern;
+
+	for (int i=0; i<args.Length(); i++)
+	{
+		Local<Value> arg = args[i];
+
+		if (arg->IsObject())
+		{
+			JSObjectHolder* holder = ExtractObjectFromJSWrapper<JSObjectHolder>(arg->ToObject());
+			WeightedEvent** note = boost::get<WeightedEvent*>(holder);
+			Pattern** pattern = boost::get<Pattern*>(holder);
+
+			if (note) {
+				cout << "note!" << endl;
+				newPattern->Add(**note);
+			}
+			else if (pattern) {
+				cout << "pattern!" << endl;
+				newPattern->Add(**pattern);
+			}
+		}
+		else if (arg->IsNumber())
+		{
+			unsigned long repeatCount = arg->Uint32Value();
+			newPattern->SetRepeatCount(repeatCount);
+			cout << "Set repeat count: " << repeatCount << endl;
+		}
+	}
+
+	// Fetch the template for creating JavaScript http request wrappers.
+	// It only has to be created once, which we do on demand.
+	if (gPatternTemplate.IsEmpty()) {
+		Handle<ObjectTemplate> raw_template = MakePatternTemplate();
+		gPatternTemplate = Persistent<ObjectTemplate>::New(raw_template);
+	}
+	Handle<ObjectTemplate> templ = gPatternTemplate;
+
+	// Create an empty object wrapper.
+	Handle<Object> result = gPatternTemplate->NewInstance();
+
+	// Wrap the raw C++ pointer in an External so it can be referenced
+	// from within JavaScript.
+	JSObjectHolder* eventHolder = new JSObjectHolder(newPattern);
+	Handle<External> ptr = External::New(eventHolder);
+
+	// Store the request pointer in the JavaScript wrapper.
+	result->SetInternalField(0, ptr);
+
+	// Return the result through the current handle scope.  Since each
+	// of these handles will go away when the handle scope is deleted
+	// we need to call Close to let one, the result, escape into the
+	// outer handle scope.
+	return handle_scope.Close(result);
 }

@@ -53,12 +53,12 @@ public:
 
 	short offPitch;
 
-	short GetPitch();
-	short GetVelocity();
-	float GetLength();
+	short GetPitch() const;
+	short GetVelocity() const;
+	float GetLength() const;
 	
 private:
-	unsigned long WeightedChoose(vector<unsigned long> weights);
+	unsigned long WeightedChoose(vector<unsigned long> weights) const;
 };
 
 struct Event
@@ -78,12 +78,13 @@ public:
 
 public:
 	void Add(const WeightedEvent& e);
+	void Add(const Pattern& p);
 	void Clear();
-	size_t GetNumEvents();
-	WeightedEvent* GetEvent(unsigned long i);
+	size_t GetNumEvents() const;
+	const WeightedEvent* GetEvent(unsigned long i) const;
 	void SetRepeatCount(int count);
 
-	int GetRepeatCount();
+	int GetRepeatCount() const;
 
 	void Print();
 

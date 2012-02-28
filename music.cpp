@@ -74,22 +74,22 @@ void WeightedEvent::Print(ostream &stream)
 	}*/
 }
 
-short WeightedEvent::GetPitch() { 
+short WeightedEvent::GetPitch() const { 
 	unsigned long pick = WeightedChoose(pitchWeight);
 	return pitch[pick];
 }
 
-short WeightedEvent::GetVelocity() { 
+short WeightedEvent::GetVelocity() const { 
 	unsigned long pick = WeightedChoose(velocityWeight);
 	return velocity[pick];
 }
 
-float WeightedEvent::GetLength() { 
+float WeightedEvent::GetLength() const { 
 	unsigned long pick = WeightedChoose(lengthWeight);
 	return length[pick];
 }
 
-unsigned long WeightedEvent::WeightedChoose(vector<unsigned long> weights)
+unsigned long WeightedEvent::WeightedChoose(vector<unsigned long> weights) const
 {
 	unsigned long total = 0;
 	for (unsigned long i=0; i<weights.size(); i++) {
@@ -125,16 +125,29 @@ void Pattern::Add(const WeightedEvent& e)
 	events_.push_back(e);
 }
 
+void Pattern::Add(const Pattern& pat)
+{
+	int numEvents = pat.GetNumEvents();
+	int repeat = pat.GetRepeatCount();
+	for (int j=0; j<repeat; j++) {
+		for (int i=0; i<numEvents; i++) {
+			const WeightedEvent* e = pat.GetEvent(i);
+			Add(*e);
+		}
+	}
+}
+
+
 void Pattern::Clear()
 {
 	events_.clear();
 }
 
-size_t Pattern::GetNumEvents() { 
+size_t Pattern::GetNumEvents() const { 
 	return events_.size(); 
 }
 
-WeightedEvent* Pattern::GetEvent(unsigned long i) {
+const WeightedEvent* Pattern::GetEvent(unsigned long i) const {
 	if (i > events_.size()) return NULL;
 	return &events_[i];
 }
@@ -143,7 +156,7 @@ void Pattern::SetRepeatCount(int count) {
 	repeatCount_ = count;
 }
 
-int Pattern::GetRepeatCount() {
+int Pattern::GetRepeatCount() const {
 	return repeatCount_;
 }
 
@@ -240,7 +253,7 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 				}
 				else
 				{
-					WeightedEvent* e = pat.pattern.GetEvent(pat.pos);
+					const WeightedEvent* e = pat.pattern.GetEvent(pat.pos);
 						
 					if (e->type == REST)
 					{

@@ -124,9 +124,6 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
 	tracks[1]->AddPattern(myPattern2, BAR);
 
-	// start the audio after everything has been initialized
-	StartAudio();
-
 	// init v8
 	v8::HandleScope handle_scope;
 
@@ -149,10 +146,8 @@ int WINAPI WinMain(HINSTANCE hInstance,
 		if (!ExecuteString(source, file_name, false, true)) return 1;
 	}
 
-	// clean up context
-	context->Exit();
-	context.Dispose();
-	v8::V8::Dispose();
+	// start the audio after everything has been initialized
+	StartAudio();
 
     // Main message loop:
     MSG msg;
@@ -163,6 +158,11 @@ int WINAPI WinMain(HINSTANCE hInstance,
     }
 
 	StopAudio();
+
+	// clean up context
+	context->Exit();
+	context.Dispose();
+	v8::V8::Dispose();
 
 	for (int i=0; i<plugins.size(); i++) {
 		delete plugins[i];
