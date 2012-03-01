@@ -1,6 +1,10 @@
-﻿  music.cpp
-  Generating Code...
-  Skipping... (no relevant changes detected)
-  winmain.cpp
-  JSFuncs.cpp
+﻿  winmain.cpp
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(167): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(269): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(288): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(290): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(291): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(296): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(298): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(315): warning C4018: '<' : signed/unsigned mismatch
   minihost.vcxproj -> C:\Documents and Settings\George\My Documents\luma2.1\build\.\Debug\minihost.exe

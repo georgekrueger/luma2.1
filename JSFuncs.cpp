@@ -8,6 +8,8 @@
 
 using namespace v8;
 
+extern vector<Track*> tracks;
+
 // Note
 static Persistent<ObjectTemplate> gNoteTemplate;
 static Persistent<ObjectTemplate> gRestTemplate;
@@ -19,8 +21,9 @@ Handle<ObjectTemplate> MakeRestTemplate();
 v8::Handle<v8::Value> MakePattern(const v8::Arguments& args);
 Handle<ObjectTemplate> MakePatternTemplate();
 Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info);
+static Handle<Value> Play(const Arguments& args);
 
-typedef boost::variant<WeightedEvent*, Pattern*> JSObjectHolder;
+typedef boost::variant<WeightedEvent*, Pattern*, Track*> JSObjectHolder;
 
 Persistent<Context> CreateV8Context()
 {
@@ -33,6 +36,7 @@ Persistent<Context> CreateV8Context()
 	global->Set(v8::String::New("note"), v8::FunctionTemplate::New(MakeNote));
 	global->Set(v8::String::New("rest"), v8::FunctionTemplate::New(MakeRest));
 	global->Set(v8::String::New("pattern"), v8::FunctionTemplate::New(MakePattern));
+	global->Set(v8::String::New("play"), v8::FunctionTemplate::New(Play));
 
 	v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
 
@@ -443,11 +447,14 @@ Handle<Value> MakeRest(const Arguments& args)
 
 static Handle<Value> Play(const Arguments& args) {
 	HandleScope scope;
-	Local<Value> arg = args[0];
-	JSObjectHolder* holder = ExtractObjectFromJSWrapper<JSObjectHolder>(arg->ToObject());
-	Pattern** pattern = boost::get<Pattern*>(holder);
-	
 
+	JSObjectHolder* holder = ExtractObjectFromJSWrapper<JSObjectHolder>(args[0]->ToObject());
+	Pattern** pattern = boost::get<Pattern*>(holder);
+
+	//JSObjectHolder* holder = ExtractObjectFromJSWrapper<JSObjectHolder>(args[1]->ToObject());
+	//Pattern** pattern = boost::get<Pattern*>(holder);
+	
+	tracks[0]->AddPattern(**pattern, BAR);
 
 	return v8::Undefined();
 }

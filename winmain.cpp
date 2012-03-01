@@ -46,20 +46,20 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	songOffsets.reserve(100);
 
 	Plugin* plug = new Plugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
-	plug->Load("C:\\Program Files\\VSTPlugins\\Abakos_2\\HERCs Abakos\\Abakos.dll", "Sun Cult [KEYS]");
+	plug->Load("C:\\Program Files\\VSTPlugins\\4FrontPiano\\4Front Piano.dll");
 
 	plug->Show(hInstance, nCmdShow);
 	plugins.push_back(plug);
 
 	plug = new Plugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
-	plug->Load("C:\\Program Files\\VSTPlugins\\4FrontPiano\\4Front Piano.dll");
+	plug->Load("C:\\Program Files\\VSTPlugins\\Abakos_2\\HERCs Abakos\\Abakos.dll", "Sun Cult [KEYS]");
 	plug->Show(hInstance, nCmdShow);
 	plugins.push_back(plug);
 
 	tracks.push_back(new Track);
 	tracks.push_back(new Track);
 	
-	Pattern myPattern(1000);
+	/*Pattern myPattern(1000);
 	WeightedEvent noteOn;
 	WeightedEvent rest;
 	rest.type = REST;
@@ -122,7 +122,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	myPattern2.Add(noteOn);
 	myPattern2.Add(rest);
 
-	tracks[1]->AddPattern(myPattern2, BAR);
+	tracks[1]->AddPattern(myPattern2, BAR);*/
 
 	// init v8
 	v8::HandleScope handle_scope;
