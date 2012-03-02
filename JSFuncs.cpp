@@ -244,7 +244,7 @@ Handle<Value> MakeNote(const Arguments& args) {
 				noteEvent->pitch.push_back(GetMidiPitch(scale, octave, degree));
 				noteEvent->pitchWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
 			}
-			else if (elem->IsNumber()) {
+			else if (elem->IsString()) {
 				
 				Scale scale;
 				short octave;
