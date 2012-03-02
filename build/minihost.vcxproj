@@ -136,11 +136,13 @@
     <ClInclude Include="..\..\vstsdk2.4\pluginterfaces\vst2.x\aeffect.h" />
     <ClInclude Include="..\..\vstsdk2.4\pluginterfaces\vst2.x\aeffectx.h" />
     <ClInclude Include="..\..\vstsdk2.4\pluginterfaces\vst2.x\vstfxstore.h" />
+    <ClInclude Include="..\Audio.h" />
     <ClInclude Include="..\JSFuncs.h" />
     <ClInclude Include="..\music.h" />
     <ClInclude Include="..\Plugin.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\Audio.cpp" />
     <ClCompile Include="..\JSFuncs.cpp" />
     <ClCompile Include="..\music.cpp" />
     <ClCompile Include="..\Plugin.cpp" />

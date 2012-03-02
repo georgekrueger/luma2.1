@@ -1,6 +1,8 @@
 
 #include "JSFuncs.h"
 #include "music.h"
+#include "Plugin.h"
+#include "Audio.h"
 #include <assert.h>
 #include <iostream>
 #include <sstream>
@@ -8,22 +10,29 @@
 
 using namespace v8;
 
-extern vector<Track*> tracks;
+vector<SongTrack*> tracks;
+
+vector<SongTrack*> GetTracks() { return tracks; }
+
+extern HINSTANCE gHinstance;
+extern int gCmdShow;
 
 // Note
 static Persistent<ObjectTemplate> gNoteTemplate;
 static Persistent<ObjectTemplate> gRestTemplate;
 static Persistent<ObjectTemplate> gPatternTemplate;
+static Persistent<ObjectTemplate> gTrackTemplate;
 v8::Handle<v8::Value> MakeNote(const v8::Arguments& args);
 Handle<ObjectTemplate> MakeNoteTemplate();
 v8::Handle<v8::Value> MakeRest(const v8::Arguments& args);
 Handle<ObjectTemplate> MakeRestTemplate();
 v8::Handle<v8::Value> MakePattern(const v8::Arguments& args);
 Handle<ObjectTemplate> MakePatternTemplate();
+v8::Handle<v8::Value> MakeTrack(const v8::Arguments& args);
+Handle<ObjectTemplate> MakeTrackTemplate();
 Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info);
-static Handle<Value> Play(const Arguments& args);
 
-typedef boost::variant<WeightedEvent*, Pattern*, Track*> JSObjectHolder;
+typedef boost::variant<WeightedEvent*, Pattern*, SongTrack*> JSObjectHolder;
 
 Persistent<Context> CreateV8Context()
 {
@@ -36,8 +45,8 @@ Persistent<Context> CreateV8Context()
 	global->Set(v8::String::New("note"), v8::FunctionTemplate::New(MakeNote));
 	global->Set(v8::String::New("rest"), v8::FunctionTemplate::New(MakeRest));
 	global->Set(v8::String::New("pattern"), v8::FunctionTemplate::New(MakePattern));
-	global->Set(v8::String::New("play"), v8::FunctionTemplate::New(Play));
-
+	global->Set(v8::String::New("track"), v8::FunctionTemplate::New(MakeTrack));
+	
 	v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
 
 	return context;
@@ -445,20 +454,6 @@ Handle<Value> MakeRest(const Arguments& args)
 	return handle_scope.Close(result); 
 }
 
-static Handle<Value> Play(const Arguments& args) {
-	HandleScope scope;
-
-	JSObjectHolder* holder = ExtractObjectFromJSWrapper<JSObjectHolder>(args[0]->ToObject());
-	Pattern** pattern = boost::get<Pattern*>(holder);
-
-	//JSObjectHolder* holder = ExtractObjectFromJSWrapper<JSObjectHolder>(args[1]->ToObject());
-	//Pattern** pattern = boost::get<Pattern*>(holder);
-	
-	tracks[0]->AddPattern(**pattern, BAR);
-
-	return v8::Undefined();
-}
-
 Handle<ObjectTemplate> MakePatternTemplate() {
 	HandleScope handle_scope;
 
@@ -518,6 +513,82 @@ Handle<Value> MakePattern(const Arguments& args) {
 	// Wrap the raw C++ pointer in an External so it can be referenced
 	// from within JavaScript.
 	JSObjectHolder* eventHolder = new JSObjectHolder(newPattern);
+	Handle<External> ptr = External::New(eventHolder);
+
+	// Store the request pointer in the JavaScript wrapper.
+	result->SetInternalField(0, ptr);
+
+	// Return the result through the current handle scope.  Since each
+	// of these handles will go away when the handle scope is deleted
+	// we need to call Close to let one, the result, escape into the
+	// outer handle scope.
+	return handle_scope.Close(result);
+}
+
+v8::Handle<v8::Value> playTrack(const v8::Arguments& args) 
+{
+	HandleScope scope;
+
+	JSObjectHolder* holder = ExtractObjectFromJSWrapper<JSObjectHolder>(args.Holder());
+	SongTrack** track = boost::get<SongTrack*>(holder);
+
+	holder = ExtractObjectFromJSWrapper<JSObjectHolder>(args[0]->ToObject());
+	Pattern** pattern = boost::get<Pattern*>(holder);
+	
+	(*track)->track->AddPattern(**pattern, BAR);
+
+	return v8::Undefined();
+}
+
+Handle<ObjectTemplate> MakeTrackTemplate() {
+	HandleScope handle_scope;
+
+	Handle<ObjectTemplate> result = ObjectTemplate::New();
+	result->SetInternalFieldCount(1);
+
+	// Add accessors for each of the fields of the request.
+	result->Set(v8::String::New("play"), v8::FunctionTemplate::New(playTrack));
+
+	// Again, return the result through the current handle scope.
+	return handle_scope.Close(result);
+}
+
+Handle<Value> MakeTrack(const Arguments& args) {
+	HandleScope handle_scope;
+
+	v8::String::Utf8Value str(args[0]);
+    const char* pluginName = ToCString(str);
+
+	string pluginPath = "C:\\Program Files\\VSTPlugins\\";
+	pluginPath.append(pluginName);
+
+	string presetName;
+	if (args.Length() > 1) {
+		v8::String::Utf8Value str2(args[1]);
+		presetName = ToCString(str2);
+	}
+
+	SongTrack* songTrack = new SongTrack;
+	songTrack->plugin = new Plugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
+	songTrack->plugin->Load(pluginPath, presetName);
+	songTrack->plugin->Show(gHinstance, gCmdShow);
+	songTrack->track = new Track;
+	tracks.push_back(songTrack);
+
+	// Fetch the template for creating JavaScript http request wrappers.
+	// It only has to be created once, which we do on demand.
+	if (gTrackTemplate.IsEmpty()) {
+		Handle<ObjectTemplate> raw_template = MakeTrackTemplate();
+		gTrackTemplate = Persistent<ObjectTemplate>::New(raw_template);
+	}
+	Handle<ObjectTemplate> templ = gTrackTemplate;
+
+	// Create an empty object wrapper.
+	Handle<Object> result = gTrackTemplate->NewInstance();
+
+	// Wrap the raw C++ pointer in an External so it can be referenced
+	// from within JavaScript.
+	JSObjectHolder* eventHolder = new JSObjectHolder(songTrack);
 	Handle<External> ptr = External::New(eventHolder);
 
 	// Store the request pointer in the JavaScript wrapper.

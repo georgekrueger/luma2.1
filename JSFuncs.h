@@ -2,6 +2,18 @@
 #define __JSFUNC_H__
 
 #include <v8.h>
+#include <vector>
+
+class Track;
+class Plugin;
+
+struct SongTrack
+{
+	Track* track;
+	Plugin* plugin;
+};
+
+std::vector<SongTrack*> GetTracks();
 
 v8::Persistent<v8::Context> CreateV8Context();
 bool ExecuteString(v8::Handle<v8::String> source,

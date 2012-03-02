@@ -8,6 +8,7 @@
 
 #include "music.h"
 #include "Plugin.h"
+#include "Audio.h"
 #include "portaudio.h"
 
 #include "JSFuncs.h"
@@ -22,20 +23,18 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 bool StartAudio();
 bool StopAudio();
 
-static const unsigned long AUDIO_SAMPLE_RATE = 44100;
-static const int AUDIO_OUTPUT_CHANNELS = 2;
-static const unsigned long AUDIO_FRAMES_PER_BUFFER = 512;
+
 //static const int VST_MAX_EVENTS = 512;
 
 PaStream *stream = NULL;
 bool audioStarted = false;
 static float** vstOutputBuffer = NULL;
 
-vector<Track*> tracks;
-vector<Plugin*> plugins;
-
 vector<Event> songEvents;
 vector<float> songOffsets;
+
+HINSTANCE gHinstance;
+int gCmdShow;
 
 int WINAPI WinMain(HINSTANCE hInstance,
                    HINSTANCE hPrevInstance,
@@ -45,84 +44,8 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	songEvents.reserve(100);
 	songOffsets.reserve(100);
 
-	Plugin* plug = new Plugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
-	plug->Load("C:\\Program Files\\VSTPlugins\\4FrontPiano\\4Front Piano.dll");
-
-	plug->Show(hInstance, nCmdShow);
-	plugins.push_back(plug);
-
-	plug = new Plugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
-	plug->Load("C:\\Program Files\\VSTPlugins\\Abakos_2\\HERCs Abakos\\Abakos.dll", "Sun Cult [KEYS]");
-	plug->Show(hInstance, nCmdShow);
-	plugins.push_back(plug);
-
-	tracks.push_back(new Track);
-	tracks.push_back(new Track);
-	
-	/*Pattern myPattern(1000);
-	WeightedEvent noteOn;
-	WeightedEvent rest;
-	rest.type = REST;
-	rest.length.push_back(1);
-	rest.length.push_back(2);
-	rest.length.push_back(4);
-	rest.lengthWeight.push_back(1);
-	rest.lengthWeight.push_back(2);
-	rest.lengthWeight.push_back(3);
-
-	noteOn.type = NOTE_ON;
-
-	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 3, 1));
-	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 3, 4));
-	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 3, 5));
-	noteOn.pitchWeight.push_back(1);
-	noteOn.pitchWeight.push_back(1);
-	noteOn.pitchWeight.push_back(1);
-
-	noteOn.velocity.push_back(50);
-	noteOn.velocity.push_back(100);
-	noteOn.velocityWeight.push_back(1);
-	noteOn.velocityWeight.push_back(1);
-
-	noteOn.length.push_back(4);
-	noteOn.lengthWeight.push_back(1);
-
-	myPattern.Add(noteOn);
-	myPattern.Add(rest);
-
-	tracks[0]->AddPattern(myPattern, BAR);
-
-	Pattern myPattern2(1000);
-	rest.length.clear();
-	rest.lengthWeight.clear();
-	rest.length.push_back(0.5);
-	rest.lengthWeight.push_back(1);
-
-	noteOn.pitch.clear();
-	noteOn.pitchWeight.clear();
-	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 6, 1));
-	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 6, 4));
-	noteOn.pitch.push_back(GetMidiPitch(CMAJ, 6, 5));
-	noteOn.pitchWeight.push_back(1);
-	noteOn.pitchWeight.push_back(1);
-	noteOn.pitchWeight.push_back(1);
-
-	noteOn.velocity.clear();
-	noteOn.velocityWeight.clear();
-	noteOn.velocity.push_back(40);
-	noteOn.velocity.push_back(60);
-	noteOn.velocityWeight.push_back(1);
-	noteOn.velocityWeight.push_back(1);
-
-	noteOn.length.clear();
-	noteOn.lengthWeight.clear();
-	noteOn.length.push_back(1);
-	noteOn.lengthWeight.push_back(1);
-
-	myPattern2.Add(noteOn);
-	myPattern2.Add(rest);
-
-	tracks[1]->AddPattern(myPattern2, BAR);*/
+	gHinstance = hInstance;
+	gCmdShow = nCmdShow;
 
 	// init v8
 	v8::HandleScope handle_scope;
@@ -163,11 +86,6 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	context->Exit();
 	context.Dispose();
 	v8::V8::Dispose();
-
-	for (int i=0; i<plugins.size(); i++) {
-		delete plugins[i];
-		delete tracks[i];
-	}
 
     return (int) msg.wParam;
 }
@@ -266,10 +184,12 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 		*out++ = 0;
 	}
 
-	for (int i=0; i<plugins.size(); i++)
+	vector<SongTrack*> tracks = GetTracks();
+
+	for (int i=0; i<tracks.size(); i++)
 	{
-		Plugin* plugin = plugins[i];
-		Track* track = tracks[i];
+		Plugin* plugin = tracks[i]->plugin;
+		Track* track = tracks[i]->track;
 
 		plugin->Process(vstOut, framesPerBuffer);
 		out = (float*)outputBuffer;
