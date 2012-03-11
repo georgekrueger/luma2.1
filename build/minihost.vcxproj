@@ -93,7 +93,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>../../vstsdk2.4;../../portaudio/include;../../boost_1_49_0;../include/v8;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../../vstsdk2.4;../../portaudio/include;C:\Program Files\boost\boost_1_47;../include/v8;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -122,6 +122,7 @@
       </DataExecutionPrevention>
       <TargetMachine>MachineX86</TargetMachine>
       <AdditionalDependencies>../libs/portaudio_x86.lib;../libs/v8_g.lib;wsock32.lib;winmm.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>C:\Program Files\boost\boost_1_47\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
@@ -137,12 +138,15 @@
     <ClInclude Include="..\..\vstsdk2.4\pluginterfaces\vst2.x\aeffectx.h" />
     <ClInclude Include="..\..\vstsdk2.4\pluginterfaces\vst2.x\vstfxstore.h" />
     <ClInclude Include="..\Audio.h" />
+    <ClInclude Include="..\Conductor.h" />
     <ClInclude Include="..\JSFuncs.h" />
     <ClInclude Include="..\music.h" />
     <ClInclude Include="..\Plugin.h" />
+    <ClInclude Include="..\SafeQueue.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Audio.cpp" />
+    <ClCompile Include="..\Conductor.cpp" />
     <ClCompile Include="..\JSFuncs.cpp" />
     <ClCompile Include="..\music.cpp" />
     <ClCompile Include="..\Plugin.cpp" />

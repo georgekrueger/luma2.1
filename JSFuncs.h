@@ -11,6 +11,7 @@ struct SongTrack
 {
 	Track* track;
 	Plugin* plugin;
+	float volume;
 };
 
 std::vector<SongTrack*> GetTracks();

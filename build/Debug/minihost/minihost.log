@@ -1,14 +1,1 @@
-﻿  JSFuncs.cpp
-c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(123): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-          c:\program files\microsoft visual studio 10.0\vc\include\stdio.h(234) : see declaration of 'fopen'
-c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(231): warning C4018: '<' : signed/unsigned mismatch
-c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(277): warning C4018: '<' : signed/unsigned mismatch
-c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(306): warning C4018: '<' : signed/unsigned mismatch
-c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(313): warning C4244: 'argument' : conversion from 'double' to 'const float', possible loss of data
-c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(319): warning C4244: 'argument' : conversion from 'double' to 'const float', possible loss of data
-c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(328): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
-c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(405): warning C4018: '<' : signed/unsigned mismatch
-c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(412): warning C4244: 'argument' : conversion from 'double' to 'const float', possible loss of data
-c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(418): warning C4244: 'argument' : conversion from 'double' to 'const float', possible loss of data
-c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(427): warning C4244: 'argument' : conversion from 'double' to 'float', possible loss of data
-  minihost.vcxproj -> C:\Documents and Settings\George\My Documents\luma2.1\build\.\Debug\minihost.exe
+﻿  minihost.vcxproj -> C:\Documents and Settings\George\My Documents\luma2.1\build\.\Debug\minihost.exe

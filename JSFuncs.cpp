@@ -525,7 +525,7 @@ Handle<Value> MakePattern(const Arguments& args) {
 	return handle_scope.Close(result);
 }
 
-v8::Handle<v8::Value> playTrack(const v8::Arguments& args) 
+v8::Handle<v8::Value> playPatternOnTrack(const v8::Arguments& args) 
 {
 	HandleScope scope;
 
@@ -547,7 +547,7 @@ Handle<ObjectTemplate> MakeTrackTemplate() {
 	result->SetInternalFieldCount(1);
 
 	// Add accessors for each of the fields of the request.
-	result->Set(v8::String::New("play"), v8::FunctionTemplate::New(playTrack));
+	result->Set(v8::String::New("play"), v8::FunctionTemplate::New(playPatternOnTrack));
 
 	// Again, return the result through the current handle scope.
 	return handle_scope.Close(result);
@@ -568,11 +568,17 @@ Handle<Value> MakeTrack(const Arguments& args) {
 		presetName = ToCString(str2);
 	}
 
+	float volume = 1.0;
+	if (args.Length() > 2) {
+		volume = args[2]->NumberValue();
+	}
+
 	SongTrack* songTrack = new SongTrack;
 	songTrack->plugin = new Plugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
 	songTrack->plugin->Load(pluginPath, presetName);
 	songTrack->plugin->Show(gHinstance, gCmdShow);
 	songTrack->track = new Track;
+	songTrack->volume = volume;
 	tracks.push_back(songTrack);
 
 	// Fetch the template for creating JavaScript http request wrappers.

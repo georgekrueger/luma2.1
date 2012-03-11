@@ -190,12 +190,13 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 	{
 		Plugin* plugin = tracks[i]->plugin;
 		Track* track = tracks[i]->track;
+		float volume = tracks[i]->volume;
 
 		plugin->Process(vstOut, framesPerBuffer);
 		out = (float*)outputBuffer;
 		for (unsigned long j=0; j<framesPerBuffer; j++) {
-			*out++ += vstOutputBuffer[0][j];
-			*out++ += vstOutputBuffer[1][j];
+			*out++ += vstOutputBuffer[0][j] * volume;
+			*out++ += vstOutputBuffer[1][j] * volume;
 		}
 	
 		songEvents.clear();
