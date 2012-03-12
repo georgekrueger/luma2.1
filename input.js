@@ -27,8 +27,8 @@ p7 = pattern(
 		32);
 //track3.play(p7);
 
-p8 = pattern( note([["CMAJ_4_1", 10], ["CMAJ_4_5", 1], ["CMAJ_5_1", 10], ["CMAJ_5_5", 1], ["CMAJ_6_1", 10], ["CMAJ_6_5", 1]], [40, 60, 80], 2), 
-			  rest([[0, 2], [0.5, 10]]), 
+p8 = pattern( note([["CMAJ_4_1", 10], ["CMAJ_4_5", 1], ["CMAJ_5_1", 10], ["CMAJ_5_5", 1], ["CMAJ_6_1", 10], ["CMAJ_6_5", 1]], [40, 60, 80], 2),
+			  rest([[0, 2], [0.5, 10]]),
 			  500 );
-p8.transpose(-2);
+//p8.transpose(-2);
 track3.play(p8);

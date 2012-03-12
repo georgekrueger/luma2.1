@@ -36,6 +36,42 @@ vector<float> songOffsets;
 HINSTANCE gHinstance;
 int gCmdShow;
 
+int ScriptEditBoxId = 1;
+int ExecuteButtonId = 2;
+HWND scriptBox;
+
+BOOL WINAPI myProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) 
+{
+	if(message == WM_CLOSE) {
+		PostQuitMessage(0);	
+	}
+
+	//check if text in textbox has been changed by user
+	if(message==WM_COMMAND && HIWORD(wParam)==EN_CHANGE && LOWORD(wParam) == ScriptEditBoxId)
+	{
+		//text in the textbox has been modified
+		//do your coding here
+	}
+
+	if(message==WM_COMMAND && HIWORD(wParam)==BN_CLICKED && LOWORD(wParam) == ExecuteButtonId)
+	{
+		cout << "Execute Script!" << endl;
+		int textLength = GetWindowTextLength(scriptBox);
+		LPTSTR buff = new char[textLength + 1];
+		int ret = GetWindowText(scriptBox, buff, textLength);
+		cout << "Parse: " << buff << endl;
+		v8::Handle<v8::String> strToParse = v8::String::New(buff, textLength);
+		v8::Handle<v8::String> filename = v8::String::New("None");
+		if (!ExecuteString(strToParse, filename, false, true)) {
+			cerr << "Failed to parse script" << buff << endl;
+		}
+		delete[] buff;
+	}
+
+	return false;
+}
+
+
 int WINAPI WinMain(HINSTANCE hInstance,
                    HINSTANCE hPrevInstance,
                    LPSTR lpCmdLine,
@@ -58,6 +94,29 @@ int WINAPI WinMain(HINSTANCE hInstance,
 	}
 	context->Enter();
 
+
+	//// Create a window for entering script /////////////////////////////
+
+	HWND myDialog = CreateWindowEx(
+		0,WC_DIALOG,"My Window",WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+		400,100,500,700,NULL,NULL,hInstance,NULL
+	);
+
+	//create the textbox
+	scriptBox = CreateWindowEx(
+		WS_EX_CLIENTEDGE, //special border style for textbox
+		"EDIT","",WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL,
+		0,0,500,100,myDialog,(HMENU)ScriptEditBoxId, NULL, NULL
+	);
+
+	SetWindowLong(myDialog, DWL_DLGPROC, (long)myProc);
+
+	HWND button = CreateWindow("button","Execute",WS_CHILD,0,100,100,30, myDialog, (HMENU)ExecuteButtonId, NULL, 0);
+	ShowWindow(button, SW_SHOW);
+
+	//////////////////////////////////////////////////////////////////////
+
+
 	// execute script
 	const char* str = "C:\\Documents and Settings\\George\\My Documents\\luma2.1\\input.js";
 	v8::Handle<v8::String> file_name = v8::String::New(str);
@@ -66,7 +125,10 @@ int WINAPI WinMain(HINSTANCE hInstance,
 		printf("Error reading '%s'\n", str);
     }
 	else {
-		if (!ExecuteString(source, file_name, false, true)) return 1;
+		v8::Handle<v8::String> filename = v8::String::New("None");
+		if (!ExecuteString(source, filename, false, true)) {
+			cerr << "Failed to parse script" << endl;
+		}
 	}
 
 	// start the audio after everything has been initialized
@@ -184,13 +246,14 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 		*out++ = 0;
 	}
 
-	vector<SongTrack*> tracks = GetTracks();
-
-	for (int i=0; i<tracks.size(); i++)
+	list<SongTrack*> tracks = GetTracks();
+	typedef list<SongTrack*>::iterator TrackIter;
+	for (TrackIter i=tracks.begin(); i != tracks.end(); i++)
 	{
-		Plugin* plugin = tracks[i]->plugin;
-		Track* track = tracks[i]->track;
-		float volume = tracks[i]->volume;
+		SongTrack* songTrack = *i;
+		Plugin* plugin = songTrack->plugin;
+		Track* track = songTrack->track;
+		float volume = songTrack->volume;
 
 		plugin->Process(vstOut, framesPerBuffer);
 		out = (float*)outputBuffer;

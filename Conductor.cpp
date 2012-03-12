@@ -9,4 +9,5 @@ void Conductor::PushCommand(const ConductorCommand& command)
 bool Conductor::PopCommand(ConductorCommand& command)
 {
 	return commands_.Consume(command);
+	return true;
 }

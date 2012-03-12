@@ -2,7 +2,7 @@
 #define __JSFUNC_H__
 
 #include <v8.h>
-#include <vector>
+#include <list>
 
 class Track;
 class Plugin;
@@ -14,7 +14,7 @@ struct SongTrack
 	float volume;
 };
 
-std::vector<SongTrack*> GetTracks();
+std::list<SongTrack*> GetTracks();
 
 v8::Persistent<v8::Context> CreateV8Context();
 bool ExecuteString(v8::Handle<v8::String> source,

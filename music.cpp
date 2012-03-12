@@ -1,10 +1,10 @@
 
+#include "music.h"
 #include <vector>
 #include <iostream>
 #include <fstream>
 #include <map>
 using namespace std;
-#include "music.h"
 
 float BPM = 120;
 float BEAT_LENGTH = 1 / BPM * 60000;
@@ -184,12 +184,16 @@ Track::Track() {}
 
 void Track::AddPattern(const Pattern& p, PatternQuantize quantize)
 {
+	boost::mutex::scoped_lock lock(mtx_);
+
 	PatternInfo sp(p, quantize);
 	patterns_.push_back(sp);
 }
 
 void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vector<float>& offsets)
 {
+	boost::mutex::scoped_lock lock(mtx_);
+
 	// update active notes
 	map<short, ActiveNote>::iterator it;
 	for (it = activeNotes_.begin(); it != activeNotes_.end(); ) {

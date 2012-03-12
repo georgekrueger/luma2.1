@@ -5,6 +5,7 @@
 #include <iostream>
 #include <fstream>
 #include <map>
+#include <boost/thread.hpp>
 using namespace std;
 
 ///////////////////////////
@@ -59,6 +60,7 @@ public:
 	
 private:
 	unsigned long WeightedChoose(vector<unsigned long> weights) const;
+	//boost::mutex mtx_;
 };
 
 struct Event
@@ -94,6 +96,7 @@ private:
 private:
 	vector<WeightedEvent> events_;
 	unsigned long repeatCount_;
+	//boost::mutex mtx_;
 };
 
 class Track
@@ -129,6 +132,8 @@ private:
 	};
 	vector<PatternInfo> patterns_;
 	map<short, ActiveNote> activeNotes_;
+
+	boost::mutex mtx_;
 };
 
 #endif

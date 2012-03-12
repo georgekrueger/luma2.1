@@ -6,13 +6,14 @@
 #include <assert.h>
 #include <iostream>
 #include <sstream>
+#include <list>
 #include <boost/variant.hpp>
 
 using namespace v8;
 
-vector<SongTrack*> tracks;
+list<SongTrack*> gTracks;
 
-vector<SongTrack*> GetTracks() { return tracks; }
+list<SongTrack*> GetTracks() { return gTracks; }
 
 extern HINSTANCE gHinstance;
 extern int gCmdShow;
@@ -579,7 +580,7 @@ Handle<Value> MakeTrack(const Arguments& args) {
 	songTrack->plugin->Show(gHinstance, gCmdShow);
 	songTrack->track = new Track;
 	songTrack->volume = volume;
-	tracks.push_back(songTrack);
+	gTracks.push_back(songTrack);
 
 	// Fetch the template for creating JavaScript http request wrappers.
 	// It only has to be created once, which we do on demand.
