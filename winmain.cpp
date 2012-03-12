@@ -60,10 +60,10 @@ BOOL WINAPI myProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		LPTSTR buff = new char[textLength + 1];
 		int ret = GetWindowText(scriptBox, buff, textLength);
 		cout << "Parse: " << buff << endl;
-		v8::Handle<v8::String> strToParse = v8::String::New(buff, textLength);
+		v8::Handle<v8::String> strToParse = v8::String::New(buff);
 		v8::Handle<v8::String> filename = v8::String::New("None");
 		if (!ExecuteString(strToParse, filename, false, true)) {
-			cerr << "Failed to parse script" << buff << endl;
+			cout << "Failed to parse script: " << buff << endl;
 		}
 		delete[] buff;
 	}
