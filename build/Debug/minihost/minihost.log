@@ -1,8 +1,8 @@
 ﻿  winmain.cpp
-c:\documents and settings\george\my documents\luma2.1\winmain.cpp(272): warning C4018: '<' : signed/unsigned mismatch
-c:\documents and settings\george\my documents\luma2.1\winmain.cpp(274): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
-c:\documents and settings\george\my documents\luma2.1\winmain.cpp(275): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
-c:\documents and settings\george\my documents\luma2.1\winmain.cpp(280): warning C4018: '<' : signed/unsigned mismatch
-c:\documents and settings\george\my documents\luma2.1\winmain.cpp(282): warning C4018: '<' : signed/unsigned mismatch
-c:\documents and settings\george\my documents\luma2.1\winmain.cpp(299): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(279): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(281): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(282): warning C4244: '=' : conversion from 'int' to 'float', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(287): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(289): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(306): warning C4018: '<' : signed/unsigned mismatch
   minihost.vcxproj -> C:\Documents and Settings\George\My Documents\luma2.1\build\.\Debug\minihost.exe

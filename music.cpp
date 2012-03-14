@@ -190,6 +190,12 @@ void Track::AddPattern(const Pattern& p, PatternQuantize quantize)
 	patterns_.push_back(sp);
 }
 
+void Track::ClearPatterns()
+{
+	boost::mutex::scoped_lock lock(mtx_);
+	patterns_.clear();
+}
+
 void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vector<float>& offsets)
 {
 	boost::mutex::scoped_lock lock(mtx_);

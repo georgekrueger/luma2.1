@@ -17,6 +17,10 @@ p4 = pattern( note([["CMAJ_4_1", 10], ["CMAJ_4_3", 1], ["CMAJ_4_4", 1], ["CMAJ_4
 p5 = pattern( note([["CMAJ_3_1", 10], ["CMAJ_3_3", 1], ["CMAJ_3_4", 1], ["CMAJ_3_5", 1], ["CMAJ_3_7", 1]], [40, 60, 80], 2), rest([1, 2, 4]), 500 );
 p6 = pattern( note([["CMAJ_4_1", 10], ["CMAJ_5_3", 1], ["CMAJ_5_4", 1], ["CMAJ_5_5", 1], ["CMAJ_5_7", 1]], [40, 60, 80], 2), rest([1, 2, 4]), 500 );
 
+//n1 = NoteGen( WeightGen([["CMAJ_4_1", 0.9], ["CMAJ_4_5", 0.1]]), WeightGen([[60, 0.6], [90, 0.4]]), 2 );
+//p1 = PatternGen( WeightGen([[n1, 0.5], [NoteGen("CMAJ_4_7", 100, 1), 0.5]]) );
+//p2 = MarkovGen( {a: NoteGen("CMAJ_4_1", 100, 1), b: NoteGen("CMAJ_4_7", 100, 1) }, [ [a, b, 0.5], [a, a, 0.5], [b, a, 0.5], [b, b, 0.5] ] );
+
 //track2.play(p4);
 //track2.play(p5);
 //track2.play(p6);

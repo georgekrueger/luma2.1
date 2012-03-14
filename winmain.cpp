@@ -53,9 +53,16 @@ BOOL WINAPI myProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		//do your coding here
 	}
 
-	if(message==WM_COMMAND && HIWORD(wParam)==BN_CLICKED && LOWORD(wParam) == ExecuteButtonId)
+	if(message==WM_COMMAND && HIWORD(wParam)== BN_CLICKED && LOWORD(wParam) == ExecuteButtonId)
 	{
 		cout << "Execute Script!" << endl;
+
+		DWORD startSelect;
+		DWORD endSelect;
+		SendMessage( scriptBox, (UINT) EM_GETSEL, (WPARAM) &startSelect, (LPARAM) &endSelect);
+		cout << "w: " << w << " l: " << l << endl;
+
+		if (startSelect == endSelect) {
 		int textLength = GetWindowTextLength(scriptBox);
 		LPTSTR buff = new char[textLength + 1];
 		int ret = GetWindowText(scriptBox, buff, textLength);
@@ -99,19 +106,19 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
 	HWND myDialog = CreateWindowEx(
 		0,WC_DIALOG,"My Window",WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-		400,100,500,700,NULL,NULL,hInstance,NULL
+		0, 0, 700, 700, NULL, NULL, hInstance, NULL
 	);
 
 	//create the textbox
 	scriptBox = CreateWindowEx(
 		WS_EX_CLIENTEDGE, //special border style for textbox
 		"EDIT","",WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL,
-		0,0,500,100,myDialog,(HMENU)ScriptEditBoxId, NULL, NULL
+		0, 0, 700, 630, myDialog, (HMENU)ScriptEditBoxId, NULL, NULL
 	);
 
 	SetWindowLong(myDialog, DWL_DLGPROC, (long)myProc);
 
-	HWND button = CreateWindow("button","Execute",WS_CHILD,0,100,100,30, myDialog, (HMENU)ExecuteButtonId, NULL, 0);
+	HWND button = CreateWindow("button", "Execute", WS_CHILD, 0, 630, 100, 30, myDialog, (HMENU)ExecuteButtonId, NULL, 0);
 	ShowWindow(button, SW_SHOW);
 
 	//////////////////////////////////////////////////////////////////////

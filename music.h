@@ -107,6 +107,7 @@ public:
 	class EventList;
 
 	void AddPattern(const Pattern& p, PatternQuantize quantize);
+	void ClearPatterns();
 
 	void Update(float songTime, float elapsedTime, vector<Event>& events, vector<float>& offsets);
 

@@ -541,6 +541,18 @@ v8::Handle<v8::Value> playPatternOnTrack(const v8::Arguments& args)
 	return v8::Undefined();
 }
 
+v8::Handle<v8::Value> clearTrack(const v8::Arguments& args) 
+{
+	HandleScope scope;
+
+	JSObjectHolder* holder = ExtractObjectFromJSWrapper<JSObjectHolder>(args.Holder());
+	SongTrack** track = boost::get<SongTrack*>(holder);
+	
+	(*track)->track->ClearPatterns();
+
+	return v8::Undefined();
+}
+
 Handle<ObjectTemplate> MakeTrackTemplate() {
 	HandleScope handle_scope;
 
@@ -549,6 +561,7 @@ Handle<ObjectTemplate> MakeTrackTemplate() {
 
 	// Add accessors for each of the fields of the request.
 	result->Set(v8::String::New("play"), v8::FunctionTemplate::New(playPatternOnTrack));
+	result->Set(v8::String::New("clear"), v8::FunctionTemplate::New(clearTrack));
 
 	// Again, return the result through the current handle scope.
 	return handle_scope.Close(result);
