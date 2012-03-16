@@ -60,9 +60,8 @@ BOOL WINAPI myProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		DWORD startSelect;
 		DWORD endSelect;
 		SendMessage( scriptBox, (UINT) EM_GETSEL, (WPARAM) &startSelect, (LPARAM) &endSelect);
-		cout << "w: " << w << " l: " << l << endl;
+		cout << "w: " << startSelect << " l: " << endSelect << endl;
 
-		if (startSelect == endSelect) {
 		int textLength = GetWindowTextLength(scriptBox);
 		LPTSTR buff = new char[textLength + 1];
 		int ret = GetWindowText(scriptBox, buff, textLength);
@@ -79,10 +78,7 @@ BOOL WINAPI myProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 
-int WINAPI WinMain(HINSTANCE hInstance,
-                   HINSTANCE hPrevInstance,
-                   LPSTR lpCmdLine,
-                   int nCmdShow)
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
 	songEvents.reserve(100);
 	songOffsets.reserve(100);
