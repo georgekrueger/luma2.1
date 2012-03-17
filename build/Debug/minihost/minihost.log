@@ -1,28 +1,2 @@
 ﻿  Gens.cpp
-c:\documents and settings\george\my documents\luma2.1\gens.cpp(44): error C2872: 'shared_ptr' : ambiguous symbol
-          could be 'c:\program files\boost\boost_1_47\boost\smart_ptr\shared_ptr.hpp(165) : boost::shared_ptr'
-          or       'c:\program files\microsoft visual studio 10.0\vc\include\memory(1418) : std::tr1::shared_ptr'
-c:\documents and settings\george\my documents\luma2.1\gens.cpp(44): error C2872: 'shared_ptr' : ambiguous symbol
-          could be 'c:\program files\boost\boost_1_47\boost\smart_ptr\shared_ptr.hpp(165) : boost::shared_ptr'
-          or       'c:\program files\microsoft visual studio 10.0\vc\include\memory(1418) : std::tr1::shared_ptr'
-c:\documents and settings\george\my documents\luma2.1\gens.cpp(46): error C2440: 'initializing' : cannot convert from 'boost::shared_ptr<T>' to 'MusicGen::Value *'
-          with
-          [
-              T=MusicGen::Value
-          ]
-          No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
-c:\documents and settings\george\my documents\luma2.1\gens.cpp(47): error C2440: 'initializing' : cannot convert from 'boost::shared_ptr<T>' to 'MusicGen::Value *'
-          with
-          [
-              T=MusicGen::Value
-          ]
-          No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
-c:\documents and settings\george\my documents\luma2.1\gens.cpp(48): error C2440: 'initializing' : cannot convert from 'boost::shared_ptr<T>' to 'MusicGen::Value *'
-          with
-          [
-              T=MusicGen::Value
-          ]
-          No user-defined-conversion operator available that can perform this conversion, or the operator cannot be called
-c:\documents and settings\george\my documents\luma2.1\gens.cpp(53): error C2955: 'boost::shared_ptr' : use of class template requires template argument list
-          c:\program files\boost\boost_1_47\boost\smart_ptr\shared_ptr.hpp(165) : see declaration of 'boost::shared_ptr'
-c:\documents and settings\george\my documents\luma2.1\gens.cpp(53): fatal error C1903: unable to recover from previous error(s); stopping compilation
+  minihost.vcxproj -> C:\Documents and Settings\George\My Documents\luma2.1\build\.\Debug\minihost.exe

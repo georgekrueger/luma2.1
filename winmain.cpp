@@ -6,7 +6,7 @@
 #include <string.h>
 #include <assert.h>
 
-#include "music.h"
+#include "Music.h"
 #include "Plugin.h"
 #include "Audio.h"
 #include "portaudio.h"

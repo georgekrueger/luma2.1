@@ -1,6 +1,6 @@
 
 #include "JSFuncs.h"
-#include "music.h"
+#include "Music.h"
 #include "Plugin.h"
 #include "Audio.h"
 #include <assert.h>
@@ -183,36 +183,6 @@ void ReportException(v8::TryCatch* try_catch) {
 }
 
 unsigned long WEIGHT_SCALE = 1000;
-
-void ExtractPitch(Handle<Value> val, Scale& scale, short& octave, short& degree)
-{
-	scale = NO_SCALE;
-	octave = 1;
-	degree = 1;
-
-	v8::String::Utf8Value str(val);
-	string pitchStr = string(ToCString(str));
-	size_t firstSplit = pitchStr.find_first_of('_');
-	size_t secondSplit = pitchStr.find_last_of('_');
-	string scaleStr = pitchStr.substr(0, firstSplit);
-	string octaveStr = pitchStr.substr(firstSplit+1, 1);
-	string degreeStr = pitchStr.substr(secondSplit+1, 1);
-	cout << scaleStr << " " << octaveStr << " " << degreeStr << endl;
-	for (int i=0; i<NumScales; i++) {
-		if (scaleStr.compare(ScaleStrings[i]) == 0) {
-			scale = (Scale)i;
-			break;
-		}
-	}
-	if (scale == NO_SCALE) {
-		cout << "Invalid scale: " << scaleStr << endl;
-		scale = CMAJ;
-	}
-	stringstream octaveStream(octaveStr);
-	octaveStream >> octave;
-	stringstream degreeStream(degreeStr);
-	degreeStream >> degree;
-}
 
 Handle<Value> MakeNote(const Arguments& args) {
 	HandleScope handle_scope;
