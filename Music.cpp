@@ -88,7 +88,8 @@ boost::shared_ptr<Value> NoteGenerator::Generate()
 	boost::shared_ptr<Value> velocityValue = velocityGen_->Generate();
 	boost::shared_ptr<Value> lengthValue = lengthGen_->Generate();
 
-	// Create and return a Note value
+	// get pitch as string or int
+	// TODO: add int handling
 	std::string* pitchStr = boost::get<std::string>(pitchValue.get());
 	if (!pitchStr) {
 		return boost::shared_ptr<Value>();
@@ -111,12 +112,30 @@ boost::shared_ptr<Value> NoteGenerator::Generate()
 	short degree;
 	ParsePitchString(*pitchStr, scale, octave, degree);
 
+	// Create and return a note value
 	boost::shared_ptr<Note> note = boost::shared_ptr<Note>(new Note);
 	note->pitch = GetMidiPitch(scale, octave, degree);
 	note->velocity = velocity;
 	note->length = length;
 
 	return boost::shared_ptr<Value>(new Value(note));
+}
+
+boost::shared_ptr<Value> RestGenerator::Generate()
+{
+	boost::shared_ptr<Value> lengthValue = lengthGen_->Generate();
+
+	float* lengthPtr = boost::get<float>(lengthValue.get());
+	float length = 1.0;
+	if (lengthPtr != NULL) {
+		length = *lengthPtr;
+	}
+
+	// Create and return a rest value
+	boost::shared_ptr<Rest> rest = boost::shared_ptr<Rest>(new Rest);
+	rest->length = length;
+
+	return boost::shared_ptr<Value>(new Value(rest));
 }
 
 WeightedGenerator::WeightedGenerator(const vector<WeightedValue>& values) : values_(values)

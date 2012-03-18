@@ -10,6 +10,7 @@
 #include <boost/variant.hpp>
 
 using namespace v8;
+using namespace std;
 
 list<SongTrack*> gTracks;
 
@@ -33,7 +34,7 @@ v8::Handle<v8::Value> MakeTrack(const v8::Arguments& args);
 Handle<ObjectTemplate> MakeTrackTemplate();
 Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info);
 
-typedef boost::variant<WeightedEvent*, Pattern*, SongTrack*> JSObjectHolder;
+typedef boost::variant<boost::shared_ptr<Music::Generator>, boost::shared_ptr<SongTrack> > MusicObject;
 
 Persistent<Context> CreateV8Context()
 {
@@ -191,114 +192,53 @@ Handle<Value> MakeNote(const Arguments& args) {
 		cout << "Error creating a note: " << endl;
 	}
 	
-	WeightedEvent* noteEvent = new WeightedEvent;
-	noteEvent->type = NOTE_ON;
+	Music::GeneratorPtr pitchGen;
+	Music::GeneratorPtr velGen;
+	Music::GeneratorPtr lenGen;
 
 	Local<Value> arg;
 
 	arg = args[0];
-	if (arg->IsArray()) {
-		Array* arr = Array::Cast(*arg);
-		for (int i=0; i<arr->Length(); i++) {
-			Local<Value> elem = arr->Get(i);
-			if (elem->IsArray()) {
-				// weighted length
-				Array* pair = Array::Cast(*elem);
-
-				Scale scale;
-				short octave;
-				short degree;
-				ExtractPitch(pair->Get(0), scale, octave, degree);
-				cout << "Scale: " << scale << " octave: " << octave << " degree: " << degree << endl;
-
-				double weight = pair->Get(1)->NumberValue();
-				noteEvent->pitch.push_back(GetMidiPitch(scale, octave, degree));
-				noteEvent->pitchWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
-			}
-			else if (elem->IsString()) {
-				
-				Scale scale;
-				short octave;
-				short degree;
-				ExtractPitch(elem, scale, octave, degree);
-				cout << "Scale: " << scale << " octave: " << octave << " degree: " << degree << endl;
-				
-				noteEvent->pitch.push_back(GetMidiPitch(scale, octave, degree));
-				noteEvent->pitchWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
-			}
-			else {
-				// error
-			}
-		}
+	if (arg->IsString()) {
+		v8::String::Utf8Value str(arg);
+		string pitchStr = string(ToCString(str));
+		pitchGen.reset(new Music::SingleValueGenerator<string>(pitchStr));
+	}
+	else if (arg->IsObject()) {
+		MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(arg->ToObject());
+		pitchGen = boost::get< Music::GeneratorPtr >(*obj);
 	}
 	else {
-		Scale scale;
-		short octave;
-		short degree;
-		ExtractPitch(arg, scale, octave, degree);
-		cout << "Scale: " << scale << " octave: " << octave << " degree: " << degree << endl;
-				
-		noteEvent->pitch.push_back(GetMidiPitch(scale, octave, degree));
-		noteEvent->pitchWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+		cout << "Error: Do not know how to handle first arg of note" << endl;
 	}
 
 	arg = args[1];
-	if (arg->IsArray()) {
-		Array* arr = Array::Cast(*arg);
-		for (int i=0; i<arr->Length(); i++) {
-			Local<Value> elem = arr->Get(i);
-			if (elem->IsArray()) {
-				// weighted length
-				Array* pair = Array::Cast(*elem);
-				short value = pair->Get(0)->Uint32Value();
-				double weight = pair->Get(1)->NumberValue();
-				noteEvent->velocity.push_back(value);
-				noteEvent->velocityWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
-			}
-			else if (elem->IsNumber()) {
-				// just length
-				short value = elem->Uint32Value();
-				noteEvent->velocity.push_back(value);
-				noteEvent->velocityWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
-			}
-			else {
-				// error
-			}
-		}
+	if (arg->IsNumber()) {
+		short value = arg->Uint32Value();
+		velGen.reset(new Music::SingleValueGenerator<int>(value));
+	}
+	else if (arg->IsObject()) {
+		MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(arg->ToObject());
+		velGen = boost::get< Music::GeneratorPtr >(*obj);
 	}
 	else {
-		noteEvent->velocity.push_back(arg->Uint32Value());
-		noteEvent->velocityWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+		cout << "Error: Do not know how to handle second arg of note" << endl;
 	}
 
 	arg = args[2];
-	if (arg->IsArray()) {
-		Array* arr = Array::Cast(*arg);
-		for (int i=0; i<arr->Length(); i++) {
-			Local<Value> elem = arr->Get(i);
-			if (elem->IsArray()) {
-				// weighted length
-				Array* pair = Array::Cast(*elem);
-				double value = pair->Get(0)->NumberValue();
-				double weight = pair->Get(1)->NumberValue();
-				noteEvent->length.push_back(value);
-				noteEvent->lengthWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
-			}
-			else if (elem->IsNumber()) {
-				// just length
-				double value = elem->NumberValue();
-				noteEvent->length.push_back(value);
-				noteEvent->lengthWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
-			}
-			else {
-				// error
-			}
-		}
+	if (arg->IsNumber()) {
+		float value = (float)arg->NumberValue();
+		lenGen.reset(new Music::SingleValueGenerator<float>(value));
+	}
+	else if (arg->IsObject()) {
+		MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(arg->ToObject());
+		velGen = boost::get< Music::GeneratorPtr >(*obj);
 	}
 	else {
-		noteEvent->length.push_back(arg->NumberValue());
-		noteEvent->lengthWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+		cout << "Error: Do not know how to handle second arg of note" << endl;
 	}
+
+	boost::shared_ptr<Music::NoteGenerator> noteGen(new Music::NoteGenerator(pitchGen, velGen, lenGen));
 
 	// Fetch the template for creating JavaScript http request wrappers.
 	// It only has to be created once, which we do on demand.
@@ -311,13 +251,12 @@ Handle<Value> MakeNote(const Arguments& args) {
 	// Create an empty object wrapper.
 	Handle<Object> result = templ->NewInstance();
 
-	// Wrap the raw C++ pointer in an External so it can be referenced
-	// from within JavaScript.
-	JSObjectHolder* eventHolder = new JSObjectHolder(noteEvent);
-	Handle<External> notePtr = External::New(eventHolder);
+	// Wrap the raw C++ pointer in an External so it can be referenced from within JavaScript.
+	MusicObject* obj = new MusicObject(noteGen);
+	Handle<External> objPtr = External::New(obj);
 
 	// Store the request pointer in the JavaScript wrapper.
-	result->SetInternalField(0, notePtr);
+	result->SetInternalField(0, objPtr);
 
 	// Return the result through the current handle scope.  Since each
 	// of these handles will go away when the handle scope is deleted
@@ -341,7 +280,7 @@ Handle<ObjectTemplate> MakeNoteTemplate() {
 
 Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info) {
 	// Extract the C++ object from the JavaScript wrapper.
-	JSObjectHolder* event = ExtractObjectFromJSWrapper<JSObjectHolder>(info.Holder());
+	MusicObject* event = ExtractObjectFromJSWrapper<MusicObject>(info.Holder());
 	WeightedEvent* noteEvent = *boost::get<WeightedEvent*>(event);
 
 	// Fetch the path.
@@ -367,37 +306,22 @@ Handle<Value> MakeRest(const Arguments& args)
 {
 	HandleScope handle_scope;
 
-	WeightedEvent* restEvent = new WeightedEvent;
-	restEvent->type = REST;
+	Music::GeneratorPtr lenGen;
 
 	Local<Value> arg = args[0];
-	if (arg->IsArray()) {
-		Array* arr = Array::Cast(*arg);
-		for (int i=0; i<arr->Length(); i++) {
-			Local<Value> elem = arr->Get(i);
-			if (elem->IsArray()) {
-				// weighted length
-				Array* pair = Array::Cast(*elem);
-				double value = pair->Get(0)->NumberValue();
-				double weight = pair->Get(1)->NumberValue();
-				restEvent->length.push_back(value);
-				restEvent->lengthWeight.push_back(static_cast<unsigned long>(weight * WEIGHT_SCALE));
-			}
-			else if (elem->IsNumber()) {
-				// just length
-				double value = elem->NumberValue();
-				restEvent->length.push_back(value);
-				restEvent->lengthWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
-			}
-			else {
-				// error
-			}
-		}
+	if (arg->IsNumber()) {
+		float value = (float)arg->NumberValue();
+		lenGen.reset(new Music::SingleValueGenerator<float>(value));
+	}
+	else if (arg->IsObject()) {
+		MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(arg->ToObject());
+		lenGen = boost::get< Music::GeneratorPtr >(*obj);
 	}
 	else {
-		restEvent->length.push_back(arg->NumberValue());
-		restEvent->lengthWeight.push_back(static_cast<unsigned long>(1 * WEIGHT_SCALE));
+		cout << "Error: Do not know how to handle first arg of rest" << endl;
 	}
+
+	boost::shared_ptr<Music::RestGenerator> restGen(new Music::RestGenerator(lenGen));
 
 	// Fetch the template for creating JavaScript http request wrappers.
 	// It only has to be created once, which we do on demand.
@@ -412,8 +336,8 @@ Handle<Value> MakeRest(const Arguments& args)
 
 	// Wrap the raw C++ pointer in an External so it can be referenced
 	// from within JavaScript.
-	JSObjectHolder* eventHolder = new JSObjectHolder(restEvent);
-	Handle<External> ptr = External::New(eventHolder);
+	MusicObject* obj = new MusicObject(restGen);
+	Handle<External> ptr = External::New(obj);
 
 	// Store the request pointer in the JavaScript wrapper.
 	result->SetInternalField(0, ptr);
@@ -441,7 +365,7 @@ Handle<ObjectTemplate> MakePatternTemplate() {
 Handle<Value> MakePattern(const Arguments& args) {
 	HandleScope handle_scope;
 
-	Pattern* newPattern = new Pattern;
+	vector<GeneratorPtr> gens;
 
 	for (int i=0; i<args.Length(); i++)
 	{
@@ -449,26 +373,19 @@ Handle<Value> MakePattern(const Arguments& args) {
 
 		if (arg->IsObject())
 		{
-			JSObjectHolder* holder = ExtractObjectFromJSWrapper<JSObjectHolder>(arg->ToObject());
-			WeightedEvent** note = boost::get<WeightedEvent*>(holder);
-			Pattern** pattern = boost::get<Pattern*>(holder);
-
-			if (note) {
-				cout << "note!" << endl;
-				newPattern->Add(**note);
-			}
-			else if (pattern) {
-				cout << "pattern!" << endl;
-				newPattern->Add(**pattern);
-			}
+			MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(arg->ToObject());
+			GeneratorPtr gen = boost::get<GeneratorPtr>(*obj);
+			gens.push_back(gen);
 		}
-		else if (arg->IsNumber())
+		/*else if (arg->IsNumber())
 		{
 			unsigned long repeatCount = arg->Uint32Value();
 			newPattern->SetRepeatCount(repeatCount);
 			cout << "Set repeat count: " << repeatCount << endl;
-		}
+		}*/
 	}
+
+	boost::shared_ptr<PatternGenerator> patternGen( new PatternGenerator(gens) );
 
 	// Fetch the template for creating JavaScript http request wrappers.
 	// It only has to be created once, which we do on demand.
@@ -483,8 +400,8 @@ Handle<Value> MakePattern(const Arguments& args) {
 
 	// Wrap the raw C++ pointer in an External so it can be referenced
 	// from within JavaScript.
-	JSObjectHolder* eventHolder = new JSObjectHolder(newPattern);
-	Handle<External> ptr = External::New(eventHolder);
+	MusicObject* obj = new MusicObject(patternGen);
+	Handle<External> ptr = External::New(obj);
 
 	// Store the request pointer in the JavaScript wrapper.
 	result->SetInternalField(0, ptr);
@@ -500,13 +417,13 @@ v8::Handle<v8::Value> playPatternOnTrack(const v8::Arguments& args)
 {
 	HandleScope scope;
 
-	JSObjectHolder* holder = ExtractObjectFromJSWrapper<JSObjectHolder>(args.Holder());
-	SongTrack** track = boost::get<SongTrack*>(holder);
+	MusicObject* holder = ExtractObjectFromJSWrapper<MusicObject>(args.Holder());
+	boost::shared_ptr<SongTrack> track = boost::get< shared_ptr<SongTrack> >(*holder);
 
-	holder = ExtractObjectFromJSWrapper<JSObjectHolder>(args[0]->ToObject());
-	Pattern** pattern = boost::get<Pattern*>(holder);
+	holder = ExtractObjectFromJSWrapper<MusicObject>(args[0]->ToObject());
+	GeneratorPtr patternGen = boost::get<GeneratorPtr>(*holder);
 	
-	(*track)->track->AddPattern(**pattern, BAR);
+	track->track->Add(patternGen, BAR);
 
 	return v8::Undefined();
 }
@@ -515,10 +432,10 @@ v8::Handle<v8::Value> clearTrack(const v8::Arguments& args)
 {
 	HandleScope scope;
 
-	JSObjectHolder* holder = ExtractObjectFromJSWrapper<JSObjectHolder>(args.Holder());
-	SongTrack** track = boost::get<SongTrack*>(holder);
+	MusicObject* holder = ExtractObjectFromJSWrapper<MusicObject>(args.Holder());
+	boost::shared_ptr<SongTrack> track = boost::get< boost::shared_ptr<SongTrack> >(*holder);
 	
-	(*track)->track->ClearPatterns();
+	track->track->ClearPatterns();
 
 	return v8::Undefined();
 }
@@ -537,11 +454,12 @@ Handle<ObjectTemplate> MakeTrackTemplate() {
 	return handle_scope.Close(result);
 }
 
-Handle<Value> MakeTrack(const Arguments& args) {
+Handle<Value> MakeTrack(const Arguments& args) 
+{
 	HandleScope handle_scope;
 
 	v8::String::Utf8Value str(args[0]);
-    const char* pluginName = ToCString(str);
+	const char* pluginName = ToCString(str);
 
 	string pluginPath = "C:\\Program Files\\VSTPlugins\\";
 	pluginPath.append(pluginName);
@@ -557,7 +475,7 @@ Handle<Value> MakeTrack(const Arguments& args) {
 		volume = args[2]->NumberValue();
 	}
 
-	SongTrack* songTrack = new SongTrack;
+	boost::shared_ptr<SongTrack> songTrack(new SongTrack);
 	songTrack->plugin = new Plugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
 	songTrack->plugin->Load(pluginPath, presetName);
 	songTrack->plugin->Show(gHinstance, gCmdShow);
@@ -578,7 +496,7 @@ Handle<Value> MakeTrack(const Arguments& args) {
 
 	// Wrap the raw C++ pointer in an External so it can be referenced
 	// from within JavaScript.
-	JSObjectHolder* eventHolder = new JSObjectHolder(songTrack);
+	MusicObject* eventHolder = new MusicObject(songTrack);
 	Handle<External> ptr = External::New(eventHolder);
 
 	// Store the request pointer in the JavaScript wrapper.

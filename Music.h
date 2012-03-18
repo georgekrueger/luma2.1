@@ -24,8 +24,6 @@ enum Scale
 };
 const int NumScales = NO_SCALE;
 
-extern const string ScaleStrings[NumScales];
-
 enum Quantization
 {
 	BEAT,
@@ -62,12 +60,14 @@ template <typename T>
 class SingleValueGenerator : public Generator
 {
 public:
+	SingleValueGenerator(T val) : val_(val) {}
+
 	virtual boost::shared_ptr<Value> Generate()
 	{
-		return boost::shared_ptr(new Value(val));
+		return boost::shared_ptr(new Value(val_));
 	}
 
-	T val;
+	T val_;
 };
 
 typedef boost::shared_ptr<Generator> GeneratorPtr;
@@ -84,16 +84,14 @@ private:
 	GeneratorPtr lengthGen_;
 };
 
-class WeightedGenerator : public Generator
+class RestGenerator : public Generator
 {
 public:
-	typedef std::pair<GeneratorPtr, unsigned long> WeightedValue;
-
-	WeightedGenerator(const std::vector<WeightedValue>& values);
+	RestGenerator(GeneratorPtr lengthGen) : lengthGen_(lengthGen) {};
 	virtual boost::shared_ptr<Value> Generate();
 
 private:
-	std::vector<WeightedValue> values_;
+	GeneratorPtr lengthGen_;
 };
 
 class PatternGenerator : public Generator
@@ -105,6 +103,18 @@ public:
 private:
 	std::vector<GeneratorPtr > values_;
 	unsigned long current_;
+};
+
+class WeightedGenerator : public Generator
+{
+public:
+	typedef std::pair<GeneratorPtr, unsigned long> WeightedValue;
+
+	WeightedGenerator(const std::vector<WeightedValue>& values);
+	virtual boost::shared_ptr<Value> Generate();
+
+private:
+	std::vector<WeightedValue> values_;
 };
 
 class Track
@@ -121,7 +131,7 @@ public:
 	{
 		short pitch;
 	};
-	typedef boost::variant<NoteOn, NoteOff> Event;
+	typedef boost::variant<NoteOnEvent, NoteOffEvent> Event;
 
 	void Add(boost::shared_ptr<Generator> gen, Quantization quantize);
 	void Clear();

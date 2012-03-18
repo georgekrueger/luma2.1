@@ -139,11 +139,13 @@
     <ClInclude Include="..\..\vstsdk2.4\pluginterfaces\vst2.x\vstfxstore.h" />
     <ClInclude Include="..\Audio.h" />
     <ClInclude Include="..\JSFuncs.h" />
+    <ClInclude Include="..\Music.h" />
     <ClInclude Include="..\Plugin.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Audio.cpp" />
     <ClCompile Include="..\JSFuncs.cpp" />
+    <ClCompile Include="..\Music.cpp" />
     <ClCompile Include="..\Plugin.cpp" />
     <ClCompile Include="..\winmain.cpp" />
   </ItemGroup>

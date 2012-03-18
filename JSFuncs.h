@@ -4,12 +4,12 @@
 #include <v8.h>
 #include <list>
 
-class Track;
+namespace Music { class Track; }
 class Plugin;
 
 struct SongTrack
 {
-	Track* track;
+	Music::Track* track;
 	Plugin* plugin;
 	float volume;
 };

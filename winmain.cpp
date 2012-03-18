@@ -30,7 +30,7 @@ PaStream *stream = NULL;
 bool audioStarted = false;
 static float** vstOutputBuffer = NULL;
 
-vector<Event> songEvents;
+vector<Music::Track::Event> songEvents;
 vector<float> songOffsets;
 
 HINSTANCE gHinstance;
@@ -255,7 +255,7 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 	{
 		SongTrack* songTrack = *i;
 		Plugin* plugin = songTrack->plugin;
-		Track* track = songTrack->track;
+		Music::Track* track = songTrack->track;
 		float volume = songTrack->volume;
 
 		plugin->Process(vstOut, framesPerBuffer);
