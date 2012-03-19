@@ -6,12 +6,11 @@
 #include <string.h>
 #include <assert.h>
 
+#include "JSFuncs.h"
 #include "Music.h"
 #include "Plugin.h"
 #include "Audio.h"
 #include "portaudio.h"
-
-#include "JSFuncs.h"
 
 using namespace std;
 
@@ -22,7 +21,6 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
                             void *userData );
 bool StartAudio();
 bool StopAudio();
-
 
 //static const int VST_MAX_EVENTS = 512;
 
@@ -280,11 +278,12 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 
 		// check for note-off / note-on pairs at the same pitch and time.
 		// some vsts require that the note-on be atleast one sample after the note-off.
-		for (int j=0; j<songEvents.size(); j++) {
-			if (songEvents[j].type == NOTE_OFF) {
-				if (j + 1 < songEvents.size() && songEvents[j+1].type == NOTE_ON && songOffsets[j] == songOffsets[j+1]) 
+		for (int j=0; j<songEvents.size() - 1; j++) {
+			if (Music::Track::NoteOffEvent* noteOffEvent = boost::get<NoteOffEvent>(&songEvents[j])) {
+				if (Music::Track::NoteOnEvent* noteOnEvent = boost::get<NoteOnEvent>(&songEvents[j+1]) && 
+					songOffsets[j] == songOffsets[j+1]) 
 				{
-					if (songEvents[j].pitch == songEvents[j+1].pitch) {
+					if (noteOnEvent->pitch == noteOffEvent->pitch) {
 						if (songOffsets[j] > 0) {
 							// move the note-off back one sample
 							songOffsets[j] -= 1;
@@ -300,15 +299,12 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 
 		// send events to plugin
 		for (int j=0; j<songEvents.size(); j++) {
-			Event& e = songEvents[j];
-			float offset = songOffsets[j];
-
-			if (e.type == NOTE_OFF) {
-				plugin->PlayNoteOff(offset, e.pitch);
+			if (Music::Track::NoteOffEvent* noteOffEvent = boost::get<NoteOffEvent>(&songEvents[j])) {
+				plugin->PlayNoteOff(songOffsets[j], noteOffEvent->pitch);
 			}
-			else if (e.type == NOTE_ON) {
-				int noteLengthInSamples = int(e.length / 1000 * AUDIO_SAMPLE_RATE);
-				plugin->PlayNoteOn(offset, e.pitch, e.velocity, noteLengthInSamples);
+			else if (Music::Track::NoteOnEvent* noteOnEvent = boost::get<NoteOnEvent>(&songEvents[j])) {
+				int noteLengthInSamples = int(noteOnEvent->length / 1000 * AUDIO_SAMPLE_RATE);
+				plugin->PlayNoteOn(songOffsets[j], noteOnEvent->pitch, noteOnEvent->velocity, noteLengthInSamples);
 			}
 		}
 	}

@@ -32,7 +32,7 @@ v8::Handle<v8::Value> MakePattern(const v8::Arguments& args);
 Handle<ObjectTemplate> MakePatternTemplate();
 v8::Handle<v8::Value> MakeTrack(const v8::Arguments& args);
 Handle<ObjectTemplate> MakeTrackTemplate();
-Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info);
+//Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info);
 
 typedef boost::variant<boost::shared_ptr<Music::Generator>, boost::shared_ptr<SongTrack> > MusicObject;
 
@@ -272,13 +272,13 @@ Handle<ObjectTemplate> MakeNoteTemplate() {
 	result->SetInternalFieldCount(1);
 
 	// Add accessors for each of the fields of the request.
-	result->SetAccessor(String::NewSymbol("pitch"), GetPitch);
+	//result->SetAccessor(String::NewSymbol("pitch"), GetPitch);
 
 	// Again, return the result through the current handle scope.
 	return handle_scope.Close(result);
 }
 
-Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info) {
+/*Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info) {
 	// Extract the C++ object from the JavaScript wrapper.
 	MusicObject* event = ExtractObjectFromJSWrapper<MusicObject>(info.Holder());
 	WeightedEvent* noteEvent = *boost::get<WeightedEvent*>(event);
@@ -288,7 +288,7 @@ Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info) {
 
 	// Wrap the result in a JavaScript string and return it.
 	return Integer::New(pitch);
-}
+}*/
 
 Handle<ObjectTemplate> MakeRestTemplate() {
 	HandleScope handle_scope;
@@ -356,7 +356,6 @@ Handle<ObjectTemplate> MakePatternTemplate() {
 	result->SetInternalFieldCount(1);
 
 	// Add accessors for each of the fields of the request.
-	//result->SetAccessor(String::NewSymbol("pitch"), GetPitch);
 
 	// Again, return the result through the current handle scope.
 	return handle_scope.Close(result);
@@ -435,7 +434,7 @@ v8::Handle<v8::Value> clearTrack(const v8::Arguments& args)
 	MusicObject* holder = ExtractObjectFromJSWrapper<MusicObject>(args.Holder());
 	boost::shared_ptr<SongTrack> track = boost::get< boost::shared_ptr<SongTrack> >(*holder);
 	
-	track->track->ClearPatterns();
+	track->track->Clear();
 
 	return v8::Undefined();
 }
