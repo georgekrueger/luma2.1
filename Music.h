@@ -64,7 +64,7 @@ public:
 
 	virtual boost::shared_ptr<Value> Generate()
 	{
-		return boost::shared_ptr(new Value(val_));
+		return boost::shared_ptr<Value>(new Value(val_));
 	}
 
 	T val_;

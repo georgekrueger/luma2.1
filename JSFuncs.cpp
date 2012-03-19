@@ -12,9 +12,9 @@
 using namespace v8;
 using namespace std;
 
-list<SongTrack*> gTracks;
+list<boost::shared_ptr<SongTrack> > gTracks;
 
-list<SongTrack*> GetTracks() { return gTracks; }
+list<boost::shared_ptr<SongTrack> >& GetTracks() { return gTracks; }
 
 extern HINSTANCE gHinstance;
 extern int gCmdShow;
@@ -44,10 +44,10 @@ Persistent<Context> CreateV8Context()
 
 	// Bind the global 'print' function to the C++ Print callback.
 	global->Set(v8::String::New("print"), v8::FunctionTemplate::New(Print));
-	global->Set(v8::String::New("note"), v8::FunctionTemplate::New(MakeNote));
-	global->Set(v8::String::New("rest"), v8::FunctionTemplate::New(MakeRest));
-	global->Set(v8::String::New("pattern"), v8::FunctionTemplate::New(MakePattern));
-	global->Set(v8::String::New("track"), v8::FunctionTemplate::New(MakeTrack));
+	global->Set(v8::String::New("NoteGen"), v8::FunctionTemplate::New(MakeNote));
+	global->Set(v8::String::New("RestGen"), v8::FunctionTemplate::New(MakeRest));
+	global->Set(v8::String::New("PatternGen"), v8::FunctionTemplate::New(MakePattern));
+	global->Set(v8::String::New("Track"), v8::FunctionTemplate::New(MakeTrack));
 	
 	v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
 
@@ -364,7 +364,7 @@ Handle<ObjectTemplate> MakePatternTemplate() {
 Handle<Value> MakePattern(const Arguments& args) {
 	HandleScope handle_scope;
 
-	vector<GeneratorPtr> gens;
+	vector<Music::GeneratorPtr> gens;
 
 	for (int i=0; i<args.Length(); i++)
 	{
@@ -373,7 +373,7 @@ Handle<Value> MakePattern(const Arguments& args) {
 		if (arg->IsObject())
 		{
 			MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(arg->ToObject());
-			GeneratorPtr gen = boost::get<GeneratorPtr>(*obj);
+			Music::GeneratorPtr gen = boost::get<Music::GeneratorPtr>(*obj);
 			gens.push_back(gen);
 		}
 		/*else if (arg->IsNumber())
@@ -384,7 +384,7 @@ Handle<Value> MakePattern(const Arguments& args) {
 		}*/
 	}
 
-	boost::shared_ptr<PatternGenerator> patternGen( new PatternGenerator(gens) );
+	boost::shared_ptr<Music::PatternGenerator> patternGen( new Music::PatternGenerator(gens) );
 
 	// Fetch the template for creating JavaScript http request wrappers.
 	// It only has to be created once, which we do on demand.
@@ -417,12 +417,12 @@ v8::Handle<v8::Value> playPatternOnTrack(const v8::Arguments& args)
 	HandleScope scope;
 
 	MusicObject* holder = ExtractObjectFromJSWrapper<MusicObject>(args.Holder());
-	boost::shared_ptr<SongTrack> track = boost::get< shared_ptr<SongTrack> >(*holder);
+	boost::shared_ptr<SongTrack> track = boost::get< boost::shared_ptr<SongTrack> >(*holder);
 
 	holder = ExtractObjectFromJSWrapper<MusicObject>(args[0]->ToObject());
-	GeneratorPtr patternGen = boost::get<GeneratorPtr>(*holder);
+	Music::GeneratorPtr patternGen = boost::get<Music::GeneratorPtr>(*holder);
 	
-	track->track->Add(patternGen, BAR);
+	track->track->Add(patternGen, Music::BAR);
 
 	return v8::Undefined();
 }
@@ -446,8 +446,8 @@ Handle<ObjectTemplate> MakeTrackTemplate() {
 	result->SetInternalFieldCount(1);
 
 	// Add accessors for each of the fields of the request.
-	result->Set(v8::String::New("play"), v8::FunctionTemplate::New(playPatternOnTrack));
-	result->Set(v8::String::New("clear"), v8::FunctionTemplate::New(clearTrack));
+	result->Set(v8::String::New("Play"), v8::FunctionTemplate::New(playPatternOnTrack));
+	result->Set(v8::String::New("Clear"), v8::FunctionTemplate::New(clearTrack));
 
 	// Again, return the result through the current handle scope.
 	return handle_scope.Close(result);
@@ -478,7 +478,7 @@ Handle<Value> MakeTrack(const Arguments& args)
 	songTrack->plugin = new Plugin(AUDIO_SAMPLE_RATE, AUDIO_FRAMES_PER_BUFFER);
 	songTrack->plugin->Load(pluginPath, presetName);
 	songTrack->plugin->Show(gHinstance, gCmdShow);
-	songTrack->track = new Track;
+	songTrack->track = new Music::Track;
 	songTrack->volume = volume;
 	gTracks.push_back(songTrack);
 

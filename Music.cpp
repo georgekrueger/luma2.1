@@ -291,7 +291,6 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 	}
 
 	// update active notes
-	map<short, ActiveNote>::iterator it;
 	for (it = activeNotes_.begin(); it != activeNotes_.end(); ) {
 		ActiveNote& activeNote = it->second;
 		if (elapsedTime >= activeNote.timeLeft) {

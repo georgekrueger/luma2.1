@@ -3,6 +3,7 @@
 
 #include <v8.h>
 #include <list>
+#include <boost/shared_ptr.hpp>
 
 namespace Music { class Track; }
 class Plugin;
@@ -14,7 +15,7 @@ struct SongTrack
 	float volume;
 };
 
-std::list<SongTrack*> GetTracks();
+std::list<boost::shared_ptr<SongTrack> >& GetTracks();
 
 v8::Persistent<v8::Context> CreateV8Context();
 bool ExecuteString(v8::Handle<v8::String> source,

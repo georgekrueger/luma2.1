@@ -247,11 +247,11 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 		*out++ = 0;
 	}
 
-	list<SongTrack*> tracks = GetTracks();
-	typedef list<SongTrack*>::iterator TrackIter;
+	list<boost::shared_ptr<SongTrack> >& tracks = GetTracks();
+	typedef list<boost::shared_ptr<SongTrack> >::iterator TrackIter;
 	for (TrackIter i=tracks.begin(); i != tracks.end(); i++)
 	{
-		SongTrack* songTrack = *i;
+		boost::shared_ptr<SongTrack> songTrack = *i;
 		Plugin* plugin = songTrack->plugin;
 		Music::Track* track = songTrack->track;
 		float volume = songTrack->volume;
@@ -272,16 +272,17 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 		// convert offsets to samples
 		for (int j=0; j<songEvents.size(); j++) {
 			// first convert offset to samples
-			int offsetInSamples = songOffsets[j] / 1000 * AUDIO_SAMPLE_RATE;
-			songOffsets[j] = offsetInSamples;
+			int offsetInSamples = static_cast<int>(songOffsets[j] / 1000 * AUDIO_SAMPLE_RATE);
+			songOffsets[j] = static_cast<float>(offsetInSamples);
 		}
 
 		// check for note-off / note-on pairs at the same pitch and time.
 		// some vsts require that the note-on be atleast one sample after the note-off.
 		for (int j=0; j<songEvents.size() - 1; j++) {
-			if (Music::Track::NoteOffEvent* noteOffEvent = boost::get<NoteOffEvent>(&songEvents[j])) {
-				if (Music::Track::NoteOnEvent* noteOnEvent = boost::get<NoteOnEvent>(&songEvents[j+1]) && 
-					songOffsets[j] == songOffsets[j+1]) 
+			Music::Track::NoteOffEvent* noteOffEvent = boost::get<Music::Track::NoteOffEvent>(&songEvents[j]);
+			if (noteOffEvent) {
+				Music::Track::NoteOnEvent* noteOnEvent = boost::get<Music::Track::NoteOnEvent>(&songEvents[j+1]);
+				if (noteOnEvent && songOffsets[j] == songOffsets[j+1]) 
 				{
 					if (noteOnEvent->pitch == noteOffEvent->pitch) {
 						if (songOffsets[j] > 0) {
@@ -299,12 +300,12 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 
 		// send events to plugin
 		for (int j=0; j<songEvents.size(); j++) {
-			if (Music::Track::NoteOffEvent* noteOffEvent = boost::get<NoteOffEvent>(&songEvents[j])) {
+			if (Music::Track::NoteOffEvent* noteOffEvent = boost::get<Music::Track::NoteOffEvent>(&songEvents[j])) {
 				plugin->PlayNoteOff(songOffsets[j], noteOffEvent->pitch);
 			}
-			else if (Music::Track::NoteOnEvent* noteOnEvent = boost::get<NoteOnEvent>(&songEvents[j])) {
-				int noteLengthInSamples = int(noteOnEvent->length / 1000 * AUDIO_SAMPLE_RATE);
-				plugin->PlayNoteOn(songOffsets[j], noteOnEvent->pitch, noteOnEvent->velocity, noteLengthInSamples);
+			else if (Music::Track::NoteOnEvent* noteOnEvent = boost::get<Music::Track::NoteOnEvent>(&songEvents[j])) {
+				//int noteLengthInSamples = int(noteOnEvent->length / 1000 * AUDIO_SAMPLE_RATE);
+				plugin->PlayNoteOn(songOffsets[j], noteOnEvent->pitch, noteOnEvent->velocity, 0);
 			}
 		}
 	}
