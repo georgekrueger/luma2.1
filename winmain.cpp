@@ -278,7 +278,8 @@ static int portaudioCallback( const void *inputBuffer, void *outputBuffer,
 
 		// check for note-off / note-on pairs at the same pitch and time.
 		// some vsts require that the note-on be atleast one sample after the note-off.
-		for (int j=0; j<songEvents.size() - 1; j++) {
+		signed int numEvents = songEvents.size() - 1;
+		for (int j=0; j<numEvents; j++) {
 			Music::Track::NoteOffEvent* noteOffEvent = boost::get<Music::Track::NoteOffEvent>(&songEvents[j]);
 			if (noteOffEvent) {
 				Music::Track::NoteOnEvent* noteOnEvent = boost::get<Music::Track::NoteOnEvent>(&songEvents[j+1]);

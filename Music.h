@@ -48,6 +48,9 @@ public:
 	float length;
 };
 
+typedef boost::shared_ptr<Note> NotePtr;
+typedef boost::shared_ptr<Rest> RestPtr;
+
 typedef boost::variant<std::string, int, float, boost::shared_ptr<Note>, boost::shared_ptr<Rest> > Value;
 
 class Generator
@@ -55,6 +58,7 @@ class Generator
 public:
 	virtual boost::shared_ptr<Value> Generate() = 0;
 };
+typedef boost::shared_ptr<Generator> GeneratorPtr;
 
 template <typename T>
 class SingleValueGenerator : public Generator
@@ -70,8 +74,6 @@ public:
 	T val_;
 };
 
-typedef boost::shared_ptr<Generator> GeneratorPtr;
-
 class NoteGenerator : public Generator
 {
 public:
@@ -83,6 +85,7 @@ private:
 	GeneratorPtr velocityGen_;
 	GeneratorPtr lengthGen_;
 };
+typedef boost::shared_ptr<NoteGenerator> NoteGenPtr;
 
 class RestGenerator : public Generator
 {
@@ -93,6 +96,7 @@ public:
 private:
 	GeneratorPtr lengthGen_;
 };
+typedef boost::shared_ptr<RestGenerator> RestGenPtr;
 
 class PatternGenerator : public Generator
 {
@@ -104,6 +108,7 @@ private:
 	std::vector<GeneratorPtr > values_;
 	unsigned long current_;
 };
+typedef boost::shared_ptr<PatternGenerator> PatternGenPtr;
 
 class WeightedGenerator : public Generator
 {
@@ -116,6 +121,7 @@ public:
 private:
 	std::vector<WeightedValue> values_;
 };
+typedef boost::shared_ptr<WeightedGenerator> WeightedGenPtr;
 
 class Track
 {

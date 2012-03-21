@@ -23,6 +23,7 @@ extern int gCmdShow;
 static Persistent<ObjectTemplate> gNoteTemplate;
 static Persistent<ObjectTemplate> gRestTemplate;
 static Persistent<ObjectTemplate> gPatternTemplate;
+static Persistent<ObjectTemplate> gWeightedGenTemplate;
 static Persistent<ObjectTemplate> gTrackTemplate;
 v8::Handle<v8::Value> MakeNote(const v8::Arguments& args);
 Handle<ObjectTemplate> MakeNoteTemplate();
@@ -30,6 +31,8 @@ v8::Handle<v8::Value> MakeRest(const v8::Arguments& args);
 Handle<ObjectTemplate> MakeRestTemplate();
 v8::Handle<v8::Value> MakePattern(const v8::Arguments& args);
 Handle<ObjectTemplate> MakePatternTemplate();
+v8::Handle<v8::Value> MakeWeightedGen(const v8::Arguments& args);
+Handle<ObjectTemplate> MakeWeightedGenTemplate();
 v8::Handle<v8::Value> MakeTrack(const v8::Arguments& args);
 Handle<ObjectTemplate> MakeTrackTemplate();
 //Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info);
@@ -47,6 +50,7 @@ Persistent<Context> CreateV8Context()
 	global->Set(v8::String::New("NoteGen"), v8::FunctionTemplate::New(MakeNote));
 	global->Set(v8::String::New("RestGen"), v8::FunctionTemplate::New(MakeRest));
 	global->Set(v8::String::New("PatternGen"), v8::FunctionTemplate::New(MakePattern));
+	global->Set(v8::String::New("WeightGen"), v8::FunctionTemplate::New(MakeWeightedGen));
 	global->Set(v8::String::New("Track"), v8::FunctionTemplate::New(MakeTrack));
 	
 	v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
@@ -181,6 +185,29 @@ void ReportException(v8::TryCatch* try_catch) {
       printf("%s\n", stack_trace_string);
     }
   }
+}
+
+Music::GeneratorPtr GetGeneratorFromJSValue(Handle<Value> value)
+{
+	Music::GeneratorPtr gen;
+	if (value->IsString()) {
+		v8::String::Utf8Value str(value);
+		string pitchStr = string(ToCString(str));
+		gen.reset(new Music::SingleValueGenerator<string>(pitchStr));
+	}
+	else if (value->IsUint32() || value->IsInt32()) {
+		int val = value->Int32Value();
+		gen.reset(new Music::SingleValueGenerator<int>(val));
+	}
+	else if (value->IsNumber()) {
+		float val = static_cast<float>(value->NumberValue());
+		gen.reset(new Music::SingleValueGenerator<int>(val));
+	}
+	else if (value->IsObject()) {
+		MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(value->ToObject());
+		gen = boost::get< Music::GeneratorPtr >(*obj);
+	}
+	return gen;
 }
 
 unsigned long WEIGHT_SCALE = 1000;
@@ -437,6 +464,58 @@ v8::Handle<v8::Value> clearTrack(const v8::Arguments& args)
 	track->track->Clear();
 
 	return v8::Undefined();
+}
+
+Handle<ObjectTemplate> MakeWeightedGenTemplate() {
+	HandleScope handle_scope;
+
+	Handle<ObjectTemplate> result = ObjectTemplate::New();
+	result->SetInternalFieldCount(1);
+
+	// Add accessors
+
+	// Again, return the result through the current handle scope.
+	return handle_scope.Close(result);
+}
+
+Handle<Value> MakeWeightedGen(const Arguments& args) {
+	HandleScope handle_scope;
+
+	vector<Music::WeightedGenerator::WeightedValue> gens;
+
+	Local<Value> arg = args[0];
+	if (arg->IsArray())
+	{
+		Array* arr = Array::Cast(*arg);
+		cout << arr->Length();
+	}
+
+	boost::shared_ptr<Music::WeightedGenerator> weightedGen( new Music::WeightedGenerator(gens) );
+
+	// Fetch the template for creating JavaScript http request wrappers.
+	// It only has to be created once, which we do on demand.
+	if (gWeightedGenTemplate.IsEmpty()) {
+		Handle<ObjectTemplate> raw_template = MakeWeightedGenTemplate();
+		gWeightedGenTemplate = Persistent<ObjectTemplate>::New(raw_template);
+	}
+	Handle<ObjectTemplate> templ = gWeightedGenTemplate;
+
+	// Create an empty object wrapper.
+	Handle<Object> result = gWeightedGenTemplate->NewInstance();
+
+	// Wrap the raw C++ pointer in an External so it can be referenced
+	// from within JavaScript.
+	MusicObject* obj = new MusicObject(weightedGen);
+	Handle<External> ptr = External::New(obj);
+
+	// Store the request pointer in the JavaScript wrapper.
+	result->SetInternalField(0, ptr);
+
+	// Return the result through the current handle scope.  Since each
+	// of these handles will go away when the handle scope is deleted
+	// we need to call Close to let one, the result, escape into the
+	// outer handle scope.
+	return handle_scope.Close(result);
 }
 
 Handle<ObjectTemplate> MakeTrackTemplate() {

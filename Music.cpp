@@ -253,19 +253,20 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 			else
 			{
 				boost::shared_ptr<Value> value = genInfo.generator->Generate();
-				if (Note* note = boost::get<Note>(value.get())) {
-
+				if (Music::NotePtr* note = boost::get<NotePtr>(value.get())) 
+				{
+					NotePtr n = *note;
 					ActiveNote newActiveNote;
-					newActiveNote.pitch = note->pitch;
+					newActiveNote.pitch = n->pitch;
 					// timeUsed is added to active note length because we subtract entire 
 					// window size when udpating active notes
-					newActiveNote.timeLeft = BeatsToMilliseconds(note->length) + timeUsed;
+					newActiveNote.timeLeft = BeatsToMilliseconds(n->length) + timeUsed;
 
-					map<short, ActiveNote>::iterator activeNoteIter = activeNotes_.find(note->pitch);
+					map<short, ActiveNote>::iterator activeNoteIter = activeNotes_.find(n->pitch);
 					if (activeNoteIter != activeNotes_.end()) {
 						// note is already on, turn it off
 						NoteOffEvent noteOffEvent;
-						noteOffEvent.pitch = note->pitch;
+						noteOffEvent.pitch = n->pitch;
 						events.push_back(noteOffEvent);
 						offsets.push_back(timeUsed);
 
@@ -275,16 +276,17 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 					}
 					else {
 						// new active note
-						activeNotes_[note->pitch] = newActiveNote;
+						activeNotes_[n->pitch] = newActiveNote;
 					}
 					NoteOnEvent noteOnEvent;
-					noteOnEvent.pitch = note->pitch;
-					noteOnEvent.velocity = note->velocity;
+					noteOnEvent.pitch = n->pitch;
+					noteOnEvent.velocity = n->velocity;
 					events.push_back(noteOnEvent);
 					offsets.push_back(timeUsed);
 				}
-				else if (Rest* rest = boost::get<Rest>(value.get())) {
-					genInfo.waitTime += rest->length;
+				else if (Music::RestPtr* rest = boost::get<RestPtr>(value.get())) {
+					RestPtr r = *rest;
+					genInfo.waitTime += BeatsToMilliseconds(r->length);
 				}
 			}
 		}
