@@ -187,7 +187,7 @@ void ReportException(v8::TryCatch* try_catch) {
   }
 }
 
-Music::GeneratorPtr GetGeneratorFromJSValue(Handle<Value> value)
+Music::GeneratorPtr GetGeneratorFromJSValue(Handle<Value> value, bool interpretIntAsFloat)
 {
 	Music::GeneratorPtr gen;
 	if (value->IsString()) {
@@ -197,11 +197,16 @@ Music::GeneratorPtr GetGeneratorFromJSValue(Handle<Value> value)
 	}
 	else if (value->IsUint32() || value->IsInt32()) {
 		int val = value->Int32Value();
-		gen.reset(new Music::SingleValueGenerator<int>(val));
+		if (interpretIntAsFloat) {
+			gen.reset(new Music::SingleValueGenerator<float>(val));
+		}
+		else {
+			gen.reset(new Music::SingleValueGenerator<int>(val));
+		}
 	}
 	else if (value->IsNumber()) {
 		float val = static_cast<float>(value->NumberValue());
-		gen.reset(new Music::SingleValueGenerator<int>(val));
+		gen.reset(new Music::SingleValueGenerator<float>(val));
 	}
 	else if (value->IsObject()) {
 		MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(value->ToObject());
@@ -259,7 +264,7 @@ Handle<Value> MakeNote(const Arguments& args) {
 	}
 	else if (arg->IsObject()) {
 		MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(arg->ToObject());
-		velGen = boost::get< Music::GeneratorPtr >(*obj);
+		lenGen = boost::get< Music::GeneratorPtr >(*obj);
 	}
 	else {
 		cout << "Error: Do not know how to handle second arg of note" << endl;
@@ -484,10 +489,20 @@ Handle<Value> MakeWeightedGen(const Arguments& args) {
 	vector<Music::WeightedGenerator::WeightedValue> gens;
 
 	Local<Value> arg = args[0];
-	if (arg->IsArray())
+	if (arg->IsObject())
 	{
-		Array* arr = Array::Cast(*arg);
-		cout << arr->Length();
+		Handle<Object> obj = arg->ToObject();
+		Local<Array> propNames = obj->GetPropertyNames();
+		for (int i=0; i<propNames->Length(); i++) {
+			Local<Value> propName = propNames->Get(i);
+			Music::GeneratorPtr genPtr = GetGeneratorFromJSValue(propName, true);
+			Local<Value> weightValue = obj->Get(propName);
+			if (weightValue->IsNumber()) {
+				float weight = static_cast<float>(weightValue->NumberValue());
+				int scaledWeight = weight * WEIGHT_SCALE;
+				gens.push_back( make_pair(genPtr, scaledWeight) );
+			}
+		}
 	}
 
 	boost::shared_ptr<Music::WeightedGenerator> weightedGen( new Music::WeightedGenerator(gens) );
