@@ -488,19 +488,21 @@ Handle<Value> MakeWeightedGen(const Arguments& args) {
 
 	vector<Music::WeightedGenerator::WeightedValue> gens;
 
-	Local<Value> arg = args[0];
-	if (arg->IsObject())
+	for (int i=0; i<args.Length(); i++)
 	{
-		Handle<Object> obj = arg->ToObject();
-		Local<Array> propNames = obj->GetPropertyNames();
-		for (int i=0; i<propNames->Length(); i++) {
-			Local<Value> propName = propNames->Get(i);
-			Music::GeneratorPtr genPtr = GetGeneratorFromJSValue(propName, true);
-			Local<Value> weightValue = obj->Get(propName);
-			if (weightValue->IsNumber()) {
-				float weight = static_cast<float>(weightValue->NumberValue());
-				int scaledWeight = weight * WEIGHT_SCALE;
-				gens.push_back( make_pair(genPtr, scaledWeight) );
+		Local<Value> arg = args[i];
+		if (arg->IsArray())
+		{
+			Array* arr = Array::Cast(*arg);
+			if (arr->Length() == 2) {
+				Local<Value> genValue = arr->Get(0);
+				Music::GeneratorPtr genPtr = GetGeneratorFromJSValue(genValue, true);
+				Local<Value> weightValue = arr->Get(1);
+				if (weightValue->IsNumber()) {
+					float weight = static_cast<float>(weightValue->NumberValue());
+					int scaledWeight = weight * WEIGHT_SCALE;
+					gens.push_back( make_pair(genPtr, scaledWeight) );
+				}
 			}
 		}
 	}
