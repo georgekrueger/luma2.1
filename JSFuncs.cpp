@@ -397,6 +397,7 @@ Handle<Value> MakePattern(const Arguments& args) {
 	HandleScope handle_scope;
 
 	vector<Music::GeneratorPtr> gens;
+	unsigned long repeat = 1;
 
 	for (int i=0; i<args.Length(); i++)
 	{
@@ -408,15 +409,13 @@ Handle<Value> MakePattern(const Arguments& args) {
 			Music::GeneratorPtr gen = boost::get<Music::GeneratorPtr>(*obj);
 			gens.push_back(gen);
 		}
-		/*else if (arg->IsNumber())
+		else if (arg->IsNumber())
 		{
-			unsigned long repeatCount = arg->Uint32Value();
-			newPattern->SetRepeatCount(repeatCount);
-			cout << "Set repeat count: " << repeatCount << endl;
-		}*/
+			repeat = arg->Uint32Value();
+		}
 	}
 
-	boost::shared_ptr<Music::PatternGenerator> patternGen( new Music::PatternGenerator(gens) );
+	boost::shared_ptr<Music::PatternGenerator> patternGen( new Music::PatternGenerator(gens, repeat) );
 
 	// Fetch the template for creating JavaScript http request wrappers.
 	// It only has to be created once, which we do on demand.

@@ -8,36 +8,52 @@ namespace Music
 float BPM = 120;
 float BEAT_LENGTH = 1 / BPM * 60000;
 
+static bool randSeeded = false;
+
 const string ScaleStrings[NumScales] = 
 {
-	"CMAJ",
-	"CMIN"
+	"MAJ",
+	"MIN",
+	"PENTAMIN"
+};
+
+const string NamedPitches[12] = 
+{
+	"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
 };
 
 struct ScaleInfo
 {
-	char const * const Name;
-	short startMidiPitch;
 	short intervals[12];
 	short numIntervals;
 };
 
 const ScaleInfo scaleInfo[NumScales] = 
 {
-	{ "cmaj", 0, { 0, 2, 4, 5, 7, 9, 11 }, 7 },
-	{ "cmin", 0, { 0, 2, 3, 5, 7, 9, 10 }, 7 },
+	{ { 0, 2, 4, 5, 7, 9, 11 }, 7 },
+	{ { 0, 2, 3, 5, 7, 9, 10 }, 7 },
+	{ { 0, 3, 5, 7, 10 }, 5 },
 };
 
 const char* GetScaleName(Scale scale)
 {
-	return scaleInfo[scale].Name;
+	return ScaleStrings[scale].c_str();
 }
 
-unsigned short GetMidiPitch(Scale scale, int octave, int degree)
+unsigned short GetPitchNumberFromName(string PitchName)
+{
+	for (int i=0; i<12; i++) {
+		if (PitchName == NamedPitches[i]) {
+			return i;
+		}
+	}
+	return 0;
+}
+
+unsigned short GetMidiPitch(Scale scale, int root, int octave, int degree)
 {
 	const ScaleInfo* info = &scaleInfo[scale];
-	short startMidiPitch = info->startMidiPitch;
-	short midiPitch = 12 * octave + startMidiPitch;
+	short midiPitch = 12 * octave + root;
 	if (degree >= 1 && degree <= info->numIntervals) {
 		midiPitch += info->intervals[degree-1];
 	}
@@ -49,18 +65,30 @@ float BeatsToMilliseconds(float beats)
 	return (BEAT_LENGTH * beats);
 }
 
-void ParsePitchString(const std::string& str, Scale& scale, short& octave, short& degree)
+void ParsePitchString(const std::string& str, Scale& scale, short& root, short& octave, short& degree)
 {
 	scale = NO_SCALE;
+	root = 60;
 	octave = 1;
 	degree = 1;
 
-	size_t firstSplit = str.find_first_of('_');
-	size_t secondSplit = str.find_last_of('_');
-	string scaleStr = str.substr(0, firstSplit);
-	string octaveStr = str.substr(firstSplit+1, 1);
-	string degreeStr = str.substr(secondSplit+1, 1);
+	size_t firstSplit = str.find('_', 0);
+	if (firstSplit == string::npos)
+		return;
+	size_t secondSplit = str.find('_', firstSplit + 1);
+	if (secondSplit == string::npos)
+		return;
+	size_t thirdSplit = str.find('_', secondSplit + 1);
+	if (thirdSplit == string::npos)
+		return;
+	string rootStr = str.substr(0, firstSplit);
+	string scaleStr = str.substr(firstSplit+1, secondSplit-firstSplit-1);
+	string octaveStr = str.substr(secondSplit+1, 1);
+	string degreeStr = str.substr(thirdSplit+1, 1);
 	//cout << scaleStr << " " << octaveStr << " " << degreeStr << endl;
+
+	root = GetPitchNumberFromName(rootStr);
+
 	for (int i=0; i<NumScales; i++) {
 		if (scaleStr.compare(ScaleStrings[i]) == 0) {
 			scale = (Scale)i;
@@ -69,7 +97,7 @@ void ParsePitchString(const std::string& str, Scale& scale, short& octave, short
 	}
 	if (scale == NO_SCALE) {
 		cout << "Invalid scale: " << scaleStr << endl;
-		scale = CMAJ;
+		scale = MAJ;
 	}
 	stringstream octaveStream(octaveStr);
 	octaveStream >> octave;
@@ -108,13 +136,14 @@ boost::shared_ptr<Value> NoteGenerator::Generate()
 	}
 
 	Scale scale;
+	short root;
 	short octave;
 	short degree;
-	ParsePitchString(*pitchStr, scale, octave, degree);
+	ParsePitchString(*pitchStr, scale, root, octave, degree);
 
 	// Create and return a note value
 	boost::shared_ptr<Note> note = boost::shared_ptr<Note>(new Note);
-	note->pitch = GetMidiPitch(scale, octave, degree);
+	note->pitch = GetMidiPitch(scale, root, octave, degree);
 	note->velocity = velocity;
 	note->length = length;
 
@@ -144,12 +173,18 @@ WeightedGenerator::WeightedGenerator(const vector<WeightedValue>& values) : valu
 
 boost::shared_ptr<Value> WeightedGenerator::Generate()
 {
+	if (!randSeeded) {
+		srand ( time(NULL) );
+		randSeeded = true;
+	}
+
 	unsigned long total = 0;
 	for (unsigned long i=0; i<values_.size(); i++) {
 		total += values_[i].second;
 	}
 	// TODO: make uniform distribution
-	unsigned long num = rand() % total;
+	int r = rand();
+	unsigned long num = r % total;
 	total = 0;
 	for (unsigned long i=0; i<values_.size(); i++) {
 		total += values_[i].second;
@@ -163,21 +198,32 @@ boost::shared_ptr<Value> WeightedGenerator::Generate()
 	return boost::shared_ptr<Value>();
 }
 
-PatternGenerator::PatternGenerator(std::vector<GeneratorPtr>& values) : values_(values), current_(0)
+PatternGenerator::PatternGenerator(std::vector<GeneratorPtr>& values, unsigned long repeat) : values_(values), repeat_(repeat), current_(0)
 {
 }
 
 boost::shared_ptr<Value> PatternGenerator::Generate()
 {
-	unsigned long size = values_.size();
-	if (current_ >= size) current_ = 0;
-	boost::shared_ptr<Value> value = values_[current_]->Generate();
-	current_++;
-	return value;
+	if (repeat_ > 0)
+	{
+		unsigned long size = values_.size();
+		if (current_ >= size) {
+			current_ = 0;
+			repeat_--;
+		}
+		if (repeat_ > 0) {
+			boost::shared_ptr<Value> value = values_[current_]->Generate();
+			current_++;
+			return value;
+		}
+	}
+	return boost::shared_ptr<Value>();
 }
 
 
-Track::Track() {}
+Track::Track() 
+{
+}
 
 void Track::Add(boost::shared_ptr<Generator> gen, Quantization quantize)
 {
@@ -229,7 +275,7 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 		GeneratorInfo& genInfo = *i;
 
 		float timeUsed = 0;
-		while (timeUsed < elapsedTime) 
+		while (timeUsed < elapsedTime)
 		{
 			float timeUsedThisIteration = 0;
 
@@ -253,7 +299,10 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 			else
 			{
 				boost::shared_ptr<Value> value = genInfo.generator->Generate();
-				if (Music::NotePtr* note = boost::get<NotePtr>(value.get())) 
+				if (!value) {
+					break;
+				}
+				else if (Music::NotePtr* note = boost::get<NotePtr>(value.get())) 
 				{
 					NotePtr n = *note;
 					ActiveNote newActiveNote;

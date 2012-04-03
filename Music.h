@@ -18,8 +18,9 @@ namespace Music
 ///////////////////////////
 enum Scale
 {
-	CMAJ,
-	CMIN,
+	MAJ,
+	MIN,
+	PENTAMIN,
 	NO_SCALE,
 };
 const int NumScales = NO_SCALE;
@@ -53,6 +54,9 @@ typedef boost::shared_ptr<Rest> RestPtr;
 
 typedef boost::variant<std::string, int, float, boost::shared_ptr<Note>, boost::shared_ptr<Rest> > Value;
 
+///////////////////////////
+// Generator base class
+///////////////////////////
 class Generator
 {
 public:
@@ -60,6 +64,9 @@ public:
 };
 typedef boost::shared_ptr<Generator> GeneratorPtr;
 
+///////////////////////////
+// Single value generator
+///////////////////////////
 template <typename T>
 class SingleValueGenerator : public Generator
 {
@@ -74,6 +81,9 @@ public:
 	T val_;
 };
 
+///////////////////////////
+// Note generator
+///////////////////////////
 class NoteGenerator : public Generator
 {
 public:
@@ -87,6 +97,9 @@ private:
 };
 typedef boost::shared_ptr<NoteGenerator> NoteGenPtr;
 
+///////////////////////////
+// Rest generator
+///////////////////////////
 class RestGenerator : public Generator
 {
 public:
@@ -98,15 +111,19 @@ private:
 };
 typedef boost::shared_ptr<RestGenerator> RestGenPtr;
 
+///////////////////////////
+// Pattern generator
+///////////////////////////
 class PatternGenerator : public Generator
 {
 public:
-	PatternGenerator(std::vector<GeneratorPtr >& values);
+	PatternGenerator(std::vector<GeneratorPtr >& values, unsigned long repeat);
 	virtual boost::shared_ptr<Value> Generate();
 
 private:
 	std::vector<GeneratorPtr > values_;
 	unsigned long current_;
+	unsigned long repeat_;
 };
 typedef boost::shared_ptr<PatternGenerator> PatternGenPtr;
 
