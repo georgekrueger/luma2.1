@@ -49,10 +49,27 @@ public:
 	float length;
 };
 
-typedef boost::shared_ptr<Note> NotePtr;
-typedef boost::shared_ptr<Rest> RestPtr;
+typedef boost::shared_ptr<Note> NoteSharedPtr;
+typedef boost::shared_ptr<Rest> RestSharedPtr;
 
-typedef boost::variant<std::string, int, float, boost::shared_ptr<Note>, boost::shared_ptr<Rest> > Value;
+typedef boost::variant<std::string, int, float, NoteSharedPtr, RestSharedPtr> Value;
+typedef boost::shared_ptr<Value> ValueSharedPtr;
+
+class Generator;
+typedef boost::shared_ptr<Generator> GeneratorSharedPtr;
+typedef boost::variant<std::string, int, float, GeneratorSharedPtr> GeneratorInput;
+
+class GenResult
+{
+public:
+	GenResult(ValueSharedPtr value, bool done) : value_(value), done_(done) {}
+	ValueSharedPtr GetValue() { return value_; }
+	bool IsDone() { return done_; }
+	void SetDone(bool b) { done_ = b; }
+private:
+	ValueSharedPtr value_;
+	bool done_;
+};
 
 ///////////////////////////
 // Generator base class
@@ -60,25 +77,21 @@ typedef boost::variant<std::string, int, float, boost::shared_ptr<Note>, boost::
 class Generator
 {
 public:
-	virtual boost::shared_ptr<Value> Generate() = 0;
-};
-typedef boost::shared_ptr<Generator> GeneratorPtr;
+	Generator(std::vector<GeneratorInput> inputs) : inputs_(inputs), canStep_(true) {}
+	GenResult Generate();
 
-///////////////////////////
-// Single value generator
-///////////////////////////
-template <typename T>
-class SingleValueGenerator : public Generator
-{
-public:
-	SingleValueGenerator(T val) : val_(val) {}
+protected:
+	ValueSharedPtr GenerateInput(unsigned long i);
 
-	virtual boost::shared_ptr<Value> Generate()
-	{
-		return boost::shared_ptr<Value>(new Value(val_));
-	}
+	// Step the generator forward and return the current ge
+	virtual void DoStep() = 0;
+	virtual GenResult DoGenerate() = 0;
 
-	T val_;
+private:
+	std::vector<GeneratorInput> inputs_;
+	std::vector<GenResult> activeGenResults_;
+	bool canStep_;
+	bool isDone_;
 };
 
 ///////////////////////////
@@ -87,15 +100,11 @@ public:
 class NoteGenerator : public Generator
 {
 public:
-	NoteGenerator(GeneratorPtr pitchGen, GeneratorPtr velocityGen, GeneratorPtr lengthGen);
-	virtual boost::shared_ptr<Value> Generate();
-
-private:
-	GeneratorPtr pitchGen_;
-	GeneratorPtr velocityGen_;
-	GeneratorPtr lengthGen_;
+	NoteGenerator(std::vector<GeneratorInput> inputs) : Generator(inputs) {}
+	virtual void DoStep() {}
+	virtual GenResult DoGenerate();
 };
-typedef boost::shared_ptr<NoteGenerator> NoteGenPtr;
+typedef boost::shared_ptr<NoteGenerator> NoteGenSharedPtr;
 
 ///////////////////////////
 // Rest generator
@@ -103,13 +112,11 @@ typedef boost::shared_ptr<NoteGenerator> NoteGenPtr;
 class RestGenerator : public Generator
 {
 public:
-	RestGenerator(GeneratorPtr lengthGen) : lengthGen_(lengthGen) {};
-	virtual boost::shared_ptr<Value> Generate();
-
-private:
-	GeneratorPtr lengthGen_;
+	RestGenerator(std::vector<GeneratorInput> inputs) : Generator(inputs) {}
+	virtual void DoStep() {}
+	virtual GenResult DoGenerate();
 };
-typedef boost::shared_ptr<RestGenerator> RestGenPtr;
+typedef boost::shared_ptr<RestGenerator> RestGenSharedPtr;
 
 ///////////////////////////
 // Pattern generator
@@ -117,26 +124,33 @@ typedef boost::shared_ptr<RestGenerator> RestGenPtr;
 class PatternGenerator : public Generator
 {
 public:
-	PatternGenerator(std::vector<GeneratorPtr >& values, unsigned long repeat);
-	virtual boost::shared_ptr<Value> Generate();
+	PatternGenerator(std::vector<GeneratorInput> inputs , unsigned long repeat);
+	virtual void DoStep();
+	virtual GenResult DoGenerate();
+	//boost::shared_ptr<PatternGenerator> MakeStatic();
 
 private:
-	std::vector<GeneratorPtr > values_;
+	static const unsigned long CURRENT_NONE = ULONG_MAX;
 	unsigned long current_;
+	unsigned long size_;
 	unsigned long repeat_;
-};
-typedef boost::shared_ptr<PatternGenerator> PatternGenPtr;
+	unsigned long numIter_;
 
+	void Reset();
+};
+typedef boost::shared_ptr<PatternGenerator> PatternGenSharedPtr;
+/*
 class WeightedGenerator : public Generator
 {
 public:
-	typedef std::pair<GeneratorPtr, unsigned long> WeightedValue;
+	typedef std::pair<GeneratorSharedPtr, unsigned long> WeightedValue;
 
 	WeightedGenerator(const std::vector<WeightedValue>& values);
 	virtual boost::shared_ptr<Value> Generate();
 
 private:
 	std::vector<WeightedValue> values_;
+	GeneratorSharedPtr currentGen_;
 };
 typedef boost::shared_ptr<WeightedGenerator> WeightedGenPtr;
 
@@ -180,7 +194,7 @@ private:
 
 	boost::mutex mtx_;
 };
-
+*/
 }
 
 #endif

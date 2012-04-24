@@ -210,7 +210,10 @@ bool Plugin::Load(string fileName, std::string program)
 	}
 
 	bool usesChunks = (effect->flags & effFlagsProgramChunks);
-	cout << usesChunks << endl;
+	cout << "usesChunks: " << usesChunks << endl;
+
+	bool supportsProcessReplacing = (effect->flags & effFlagsCanReplacing);
+	cout << "supportsProcessReplacing: " << supportsProcessReplacing << endl;
 
 	//void* chunkData;
 	//static const VstInt32 PRESET_CHUNK =  1;

@@ -187,9 +187,9 @@ void ReportException(v8::TryCatch* try_catch) {
   }
 }
 
-Music::GeneratorPtr GetGeneratorFromJSValue(Handle<Value> value, bool interpretIntAsFloat)
+Music::GeneratorSharedPtr GetGeneratorFromJSValue(Handle<Value> value, bool interpretIntAsFloat)
 {
-	Music::GeneratorPtr gen;
+	Music::GeneratorSharedPtr gen;
 	if (value->IsString()) {
 		v8::String::Utf8Value str(value);
 		string pitchStr = string(ToCString(str));
@@ -210,7 +210,7 @@ Music::GeneratorPtr GetGeneratorFromJSValue(Handle<Value> value, bool interpretI
 	}
 	else if (value->IsObject()) {
 		MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(value->ToObject());
-		gen = boost::get< Music::GeneratorPtr >(*obj);
+		gen = boost::get< Music::GeneratorSharedPtr >(*obj);
 	}
 	return gen;
 }
@@ -224,9 +224,9 @@ Handle<Value> MakeNote(const Arguments& args) {
 		cout << "Error creating a note: " << endl;
 	}
 	
-	Music::GeneratorPtr pitchGen;
-	Music::GeneratorPtr velGen;
-	Music::GeneratorPtr lenGen;
+	Music::GeneratorSharedPtr pitchGen;
+	Music::GeneratorSharedPtr velGen;
+	Music::GeneratorSharedPtr lenGen;
 
 	Local<Value> arg;
 
@@ -238,7 +238,7 @@ Handle<Value> MakeNote(const Arguments& args) {
 	}
 	else if (arg->IsObject()) {
 		MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(arg->ToObject());
-		pitchGen = boost::get< Music::GeneratorPtr >(*obj);
+		pitchGen = boost::get< Music::GeneratorSharedPtr >(*obj);
 	}
 	else {
 		cout << "Error: Do not know how to handle first arg of note" << endl;
@@ -251,7 +251,7 @@ Handle<Value> MakeNote(const Arguments& args) {
 	}
 	else if (arg->IsObject()) {
 		MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(arg->ToObject());
-		velGen = boost::get< Music::GeneratorPtr >(*obj);
+		velGen = boost::get< Music::GeneratorSharedPtr >(*obj);
 	}
 	else {
 		cout << "Error: Do not know how to handle second arg of note" << endl;
@@ -264,7 +264,7 @@ Handle<Value> MakeNote(const Arguments& args) {
 	}
 	else if (arg->IsObject()) {
 		MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(arg->ToObject());
-		lenGen = boost::get< Music::GeneratorPtr >(*obj);
+		lenGen = boost::get< Music::GeneratorSharedPtr >(*obj);
 	}
 	else {
 		cout << "Error: Do not know how to handle second arg of note" << endl;
@@ -338,7 +338,7 @@ Handle<Value> MakeRest(const Arguments& args)
 {
 	HandleScope handle_scope;
 
-	Music::GeneratorPtr lenGen;
+	Music::GeneratorSharedPtr lenGen;
 
 	Local<Value> arg = args[0];
 	if (arg->IsNumber()) {
@@ -347,13 +347,13 @@ Handle<Value> MakeRest(const Arguments& args)
 	}
 	else if (arg->IsObject()) {
 		MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(arg->ToObject());
-		lenGen = boost::get< Music::GeneratorPtr >(*obj);
+		lenGen = boost::get< Music::GeneratorSharedPtr >(*obj);
 	}
 	else {
 		cout << "Error: Do not know how to handle first arg of rest" << endl;
 	}
 
-	boost::shared_ptr<Music::RestGenerator> restGen(new Music::RestGenerator(lenGen));
+	Music::RestGenSharedPtr restGen(new Music::RestGenerator(lenGen));
 
 	// Fetch the template for creating JavaScript http request wrappers.
 	// It only has to be created once, which we do on demand.
@@ -381,13 +381,60 @@ Handle<Value> MakeRest(const Arguments& args)
 	return handle_scope.Close(result); 
 }
 
+v8::Handle<v8::Value> makeStaticPattern(const v8::Arguments& args) 
+{
+	HandleScope scope;
+
+	MusicObject* holder = ExtractObjectFromJSWrapper<MusicObject>(args.Holder());
+	Music::GeneratorSharedPtr* gen = boost::get<Music::GeneratorSharedPtr>(holder);
+	if (!gen) {
+		cerr << "this object of MakeStatic is not a generator!" << endl;
+		return v8::Undefined();
+	}
+	Music::PatternGenerator* patGen = dynamic_cast<Music::PatternGenerator*>(gen->get());
+	if (!patGen) {
+		cerr << "this object of MakeStatic is not a pattern generator!" << endl;
+		return v8::Undefined();
+	}
+
+	Music::PatternGenSharedPtr newPatGen = patGen->MakeStatic();
+
+	// TODO: Move this boilerplate code below into a function
+
+	// Fetch the template for creating JavaScript http request wrappers.
+	// It only has to be created once, which we do on demand.
+	if (gPatternTemplate.IsEmpty()) {
+		Handle<ObjectTemplate> raw_template = MakePatternTemplate();
+		gPatternTemplate = Persistent<ObjectTemplate>::New(raw_template);
+	}
+	Handle<ObjectTemplate> templ = gPatternTemplate;
+
+	// Create an empty object wrapper.
+	Handle<Object> result = gPatternTemplate->NewInstance();
+
+	// Wrap the raw C++ pointer in an External so it can be referenced
+	// from within JavaScript.
+	MusicObject* obj = new MusicObject(newPatGen);
+	Handle<External> ptr = External::New(obj);
+
+	// Store the request pointer in the JavaScript wrapper.
+	result->SetInternalField(0, ptr);
+
+	// Return the result through the current handle scope.  Since each
+	// of these handles will go away when the handle scope is deleted
+	// we need to call Close to let one, the result, escape into the
+	// outer handle scope.
+	return scope.Close(result);
+}
+
 Handle<ObjectTemplate> MakePatternTemplate() {
 	HandleScope handle_scope;
 
 	Handle<ObjectTemplate> result = ObjectTemplate::New();
 	result->SetInternalFieldCount(1);
 
-	// Add accessors for each of the fields of the request.
+	// Add accessors for each of the fields
+	result->Set(v8::String::New("MakeStatic"), v8::FunctionTemplate::New(makeStaticPattern));
 
 	// Again, return the result through the current handle scope.
 	return handle_scope.Close(result);
@@ -396,7 +443,7 @@ Handle<ObjectTemplate> MakePatternTemplate() {
 Handle<Value> MakePattern(const Arguments& args) {
 	HandleScope handle_scope;
 
-	vector<Music::GeneratorPtr> gens;
+	vector<Music::GeneratorSharedPtr> gens;
 	unsigned long repeat = 1;
 
 	for (int i=0; i<args.Length(); i++)
@@ -406,7 +453,7 @@ Handle<Value> MakePattern(const Arguments& args) {
 		if (arg->IsObject())
 		{
 			MusicObject* obj = ExtractObjectFromJSWrapper<MusicObject>(arg->ToObject());
-			Music::GeneratorPtr gen = boost::get<Music::GeneratorPtr>(*obj);
+			Music::GeneratorSharedPtr gen = boost::get<Music::GeneratorSharedPtr>(*obj);
 			gens.push_back(gen);
 		}
 		else if (arg->IsNumber())
@@ -415,7 +462,7 @@ Handle<Value> MakePattern(const Arguments& args) {
 		}
 	}
 
-	boost::shared_ptr<Music::PatternGenerator> patternGen( new Music::PatternGenerator(gens, repeat) );
+	Music::PatternGenSharedPtr patternGen( new Music::PatternGenerator(gens, repeat) );
 
 	// Fetch the template for creating JavaScript http request wrappers.
 	// It only has to be created once, which we do on demand.
@@ -451,7 +498,7 @@ v8::Handle<v8::Value> playPatternOnTrack(const v8::Arguments& args)
 	boost::shared_ptr<SongTrack> track = boost::get< boost::shared_ptr<SongTrack> >(*holder);
 
 	holder = ExtractObjectFromJSWrapper<MusicObject>(args[0]->ToObject());
-	Music::GeneratorPtr patternGen = boost::get<Music::GeneratorPtr>(*holder);
+	Music::GeneratorSharedPtr patternGen = boost::get<Music::GeneratorSharedPtr>(*holder);
 	
 	track->track->Add(patternGen, Music::BAR);
 
@@ -495,7 +542,7 @@ Handle<Value> MakeWeightedGen(const Arguments& args) {
 			Array* arr = Array::Cast(*arg);
 			if (arr->Length() == 2) {
 				Local<Value> genValue = arr->Get(0);
-				Music::GeneratorPtr genPtr = GetGeneratorFromJSValue(genValue, true);
+				Music::GeneratorSharedPtr genPtr = GetGeneratorFromJSValue(genValue, true);
 				Local<Value> weightValue = arr->Get(1);
 				if (weightValue->IsNumber()) {
 					float weight = static_cast<float>(weightValue->NumberValue());
