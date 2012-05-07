@@ -105,62 +105,14 @@ void ParsePitchString(const std::string& str, Scale& scale, short& root, short& 
 	degreeStream >> degree;
 }
 
-class GenerateInputVisitor : public boost::static_visitor<GenResult>
+ValueListSharedPtr NoteGenerator::Generate()
 {
-public:
-	GenResult operator()(int i) const {
-        return GenResult(ValueSharedPtr(new Value(i)), true);
-    }
-
-	GenResult operator()(float f) const {
-		return GenResult(ValueSharedPtr(new Value(f)), true);
-    }
-
-	GenResult operator()(std::string s) const {
-		return GenResult(ValueSharedPtr(new Value(s)), true);
-    }
-
-	GenResult operator()(GeneratorSharedPtr g) const {
-		return g->Generate();
-    }
-};
-
-GenResult Generator::Generate()
-{
-	if (canStep_) {
-		DoStep();
-	}
-
-	activeGenResults_.clear();
-
-	GenResult result = DoGenerate();
-	
-	bool allResultsDone = true;
-	for (auto i=activeGenResults_.begin(); i!=activeGenResults_.end(); i++) {
-		allResultsDone &= (*i).IsDone();
-	}
-	canStep_ = allResultsDone;
-
-	result.SetDone(result.IsDone() && allResultsDone);
-
-	return result;
-}
-
-ValueSharedPtr Generator::GenerateInput(unsigned long i)
-{
-	GenResult result = boost::apply_visitor( GenerateInputVisitor(), inputs_[i] );
-	activeGenResults_.push_back(result);
-	return result.GetValue();
-}
-
-GenResult NoteGenerator::DoGenerate()
-{
-	ValueSharedPtr pitchValue = GenerateInput(0);
-	ValueSharedPtr velocityValue = GenerateInput(1);
-	ValueSharedPtr lengthValue = GenerateInput(2);
+	ValueListSharedPtr pitchResult = pitchGen_->Generate();
+	ValueListSharedPtr velocityResult = velocityGen_->Generate();
+	ValueListSharedPtr lengthResult = lengthGen_->Generate();
 
 	short pitch;
-	if (std::string* pitchStr = boost::get<std::string>(pitchValue.get())) {
+	if (std::string* pitchStr = boost::get<std::string>(pitchResult->at(0).get())) {
 		// parse pitch as string
 		Scale scale;
 		short root;
@@ -169,18 +121,18 @@ GenResult NoteGenerator::DoGenerate()
 		ParsePitchString(*pitchStr, scale, root, octave, degree);
 		pitch = GetMidiPitch(scale, root, octave, degree);
 	}
-	else if (int* pitchInt = boost::get<int>(pitchValue.get())) {
+	else if (int* pitchInt = boost::get<int>(pitchResult->at(0).get())) {
 		// parse pitch as int
 		pitch = *pitchInt;
 	}
 
-	int* velocityPtr = boost::get<int>(velocityValue.get());
+	int* velocityPtr = boost::get<int>(velocityResult->at(0).get());
 	int velocity = 127;
 	if (velocityPtr != NULL) {
 		velocity = *velocityPtr;
 	}
 
-	float* lengthPtr = boost::get<float>(lengthValue.get());
+	float* lengthPtr = boost::get<float>(lengthResult->at(0).get());
 	float length = 1.0;
 	if (lengthPtr != NULL) {
 		length = *lengthPtr;
@@ -192,15 +144,17 @@ GenResult NoteGenerator::DoGenerate()
 	note->velocity = velocity;
 	note->length = length;
 
-	return GenResult( ValueSharedPtr(new Value(note)), true );
+	ValueListSharedPtr resultPtr;
+	resultPtr->push_back(ValueSharedPtr(new Value(note)));
+	return resultPtr;
 }
 
 
-GenResult RestGenerator::DoGenerate()
+ValueListSharedPtr RestGenerator::Generate()
 {
-	ValueSharedPtr lengthValue = GenerateInput(0);
+	ValueListSharedPtr lengthResult = lengthGen_->Generate();
 
-	float* lengthPtr = boost::get<float>(lengthValue.get());
+	float* lengthPtr = boost::get<float>(lengthResult->at(0).get());
 	float length = 1.0;
 	if (lengthPtr != NULL) {
 		length = *lengthPtr;
@@ -210,126 +164,67 @@ GenResult RestGenerator::DoGenerate()
 	RestSharedPtr rest = RestSharedPtr(new Rest);
 	rest->length = length;
 
-	return GenResult( ValueSharedPtr(new Value(rest)), true );
+	ValueListSharedPtr resultPtr;
+	resultPtr->push_back(ValueSharedPtr(new Value(rest)));
+	return resultPtr;
 }
 
-PatternGenerator::PatternGenerator(std::vector<GeneratorInput> inputs , unsigned long repeat) 
-	: Generator(inputs), repeat_(repeat), size_(inputs.size())
+ValueListSharedPtr PatternGenerator::Generate()
 {
-	Reset();
-}
-
-void PatternGenerator::Reset()
-{
-	numIter_ = 0;
-	current_ = CURRENT_NONE;
-}
-
-void PatternGenerator::DoStep()
-{
-	if (current_ == CURRENT_NONE || current_ == size_ - 1) {
-		current_ = 0;
-	}
-	else {
-		current_++;
-		if (current_ == size_ - 1) numIter_++;
-	}
-}
-
-GenResult PatternGenerator::DoGenerate()
-{
-	ValueSharedPtr value = GenerateInput(current_);
-	bool done = (numIter_ == repeat_);
-	return GenResult( value, done );
-}
-
-/*PatternGenSharedPtr PatternGenerator::MakeStatic()
-{
-	std::vector<GeneratorSharedPtr> gens;
-
-	unsigned long numIter = 0;
-	unsigned long current = 0;
-
-	while (!done_) {
-		ValueSharedPtr value = Generate();
-		if (!value) {
-			break;
-		}
-		else if (NoteSharedPtr* note = boost::get<NoteSharedPtr>(value.get())) 
+	ValueListSharedPtr outResult;
+	for (unsigned long j=0; j<repeat_; j++)
+	{
+		for (unsigned long i=0; i<items_.size(); i++)
 		{
-			GeneratorSharedPtr pitchGen( new SingleValueGenerator<int>((*note)->pitch) );
-			GeneratorSharedPtr velGen( new SingleValueGenerator<int>((*note)->velocity) );
-			GeneratorSharedPtr lenGen( new SingleValueGenerator<float>((*note)->length) );
-			NoteGenSharedPtr noteGen( new NoteGenerator(pitchGen, velGen, lenGen) );
-			gens.push_back(noteGen);
-		}
-		else if (RestSharedPtr* rest = boost::get<RestSharedPtr>(value.get())) {
-			GeneratorSharedPtr lenGen( new SingleValueGenerator<float>((*rest)->length) );
-			RestGenSharedPtr restGen( new RestGenerator(lenGen) );
-			gens.push_back(restGen);
+			ValueListSharedPtr res = items_[i]->Generate();
+			outResult->insert(outResult->end(), res->begin(), res->end());
 		}
 	}
-
-	PatternGenSharedPtr newPatternGen(new PatternGenerator(gens , 1));
-	return newPatternGen;
-}*/
-
-/*
-WeightedGenerator::WeightedGenerator(const vector<WeightedValue>& values) : values_(values)
-{
+	return outResult;
 }
 
-boost::shared_ptr<Value> WeightedGenerator::Generate()
+ValueListSharedPtr WeightedGenerator::Generate()
 {
 	if (!randSeeded) {
 		srand ( static_cast<unsigned int>(time(NULL)) );
 		randSeeded = true;
 	}
 
-	boost::shared_ptr<Value> value;
-
-	if (done_)
-	{
-		unsigned long total = 0;
-		for (unsigned long i=0; i<values_.size(); i++) {
-			total += values_[i].second;
-		}
-		// TODO: make uniform distribution
-		int r = rand();
-		unsigned long num = r % total;
-		total = 0;
-		for (unsigned long i=0; i<values_.size(); i++) {
-			total += values_[i].second;
-			if (total > num) {
-				// found the item we are choosing
-				currentGen_ = values_[i].first;
-				break;
-			}
+	unsigned long total = 0;
+	for (unsigned long i=0; i<values_.size(); i++) {
+		total += values_[i].second;
+	}
+	// TODO: make uniform distribution
+	int r = rand();
+	unsigned long num = r % total;
+	total = 0;
+	for (unsigned long i=0; i<values_.size(); i++) {
+		total += values_[i].second;
+		if (total > num) {
+			// found the item we are choosing
+			return values_[i].first->Generate();
 		}
 	}
 
-	value = currentGen_->Generate();
-	done_ = currentGen_->IsDone();
-
-	return value;
+	return ValueListSharedPtr();
 }
 
 Track::Track() 
 {
 }
 
-void Track::Add(boost::shared_ptr<Generator> gen, Quantization quantize)
+void Track::Add(GeneratorSharedPtr gen, Quantization quantize)
 {
 	boost::mutex::scoped_lock lock(mtx_);
 
-	GeneratorInfo genInfo = {0, BAR, gen};
-	generators_.push_back(genInfo);
+	Part part = {0, 0, BAR, gen->Generate()};
+	parts_.push_back(part);
 }
 
 void Track::Clear()
 {
 	boost::mutex::scoped_lock lock(mtx_);
-	generators_.clear();
+	parts_.clear();
 }
 
 void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vector<float>& offsets)
@@ -363,9 +258,9 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 		}
 	}
 
-	for (vector<GeneratorInfo>::iterator i = generators_.begin(); i != generators_.end(); i++)
+	for (vector<Part>::iterator i = parts_.begin(); i != parts_.end(); i++)
 	{
-		GeneratorInfo& genInfo = *i;
+		Part& part = *i;
 
 		float timeUsed = 0;
 		while (timeUsed < elapsedTime)
@@ -373,25 +268,29 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 			float timeUsedThisIteration = 0;
 
 			// if there is left over time from a previously encountered rest, then consume it.
-			if (genInfo.waitTime > 0) 
+			if (part.waitTime > 0) 
 			{
-				if (timeUsed + genInfo.waitTime > elapsedTime) {
+				if (timeUsed + part.waitTime > elapsedTime) {
 					// wait time is bigger than time left in window. use up as much wait time as we can.
 					float timeLeftInFrame = elapsedTime - timeUsed;
-					genInfo.waitTime -= timeLeftInFrame;
+					part.waitTime -= timeLeftInFrame;
 					timeUsed = elapsedTime;
 					timeUsedThisIteration = timeLeftInFrame;
 				}
 				else {
 					// wait time is smaller than window. use up remaining wait time.
-					timeUsed += genInfo.waitTime;
-					timeUsedThisIteration = genInfo.waitTime;
-					genInfo.waitTime = 0;
+					timeUsed += part.waitTime;
+					timeUsedThisIteration = part.waitTime;
+					part.waitTime = 0;
 				}
 			}
 			else
 			{
-				ValueSharedPtr value = genInfo.generator->Generate();
+				// get the next event in the list
+				if (part.currentEvent >= part.events->size()) {
+					break;
+				}
+				ValueSharedPtr value = part.events->at(part.currentEvent);
 				if (!value) {
 					break;
 				}
@@ -428,7 +327,7 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 				}
 				else if (Music::RestSharedPtr* rest = boost::get<RestSharedPtr>(value.get())) {
 					RestSharedPtr r = *rest;
-					genInfo.waitTime += BeatsToMilliseconds(r->length);
+					part.waitTime += BeatsToMilliseconds(r->length);
 				}
 			}
 		}
@@ -461,5 +360,5 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 		}
 	}
 }
-*/
+
 }

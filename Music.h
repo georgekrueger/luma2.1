@@ -35,17 +35,15 @@ unsigned short GetMidiPitch(Scale scale, int octave, int degree);
 const char* GetScaleName(Scale scale);
 float BeatsToMilliseconds(float beats);
 
-class Note
+struct Note
 {
-public:
 	short pitch;
 	short velocity;
 	float length;
 };
 
-class Rest
+struct Rest
 {
-public:
 	float length;
 };
 
@@ -57,19 +55,7 @@ typedef boost::shared_ptr<Value> ValueSharedPtr;
 
 class Generator;
 typedef boost::shared_ptr<Generator> GeneratorSharedPtr;
-typedef boost::variant<std::string, int, float, GeneratorSharedPtr> GeneratorInput;
-
-class GenResult
-{
-public:
-	GenResult(ValueSharedPtr value, bool done) : value_(value), done_(done) {}
-	ValueSharedPtr GetValue() { return value_; }
-	bool IsDone() { return done_; }
-	void SetDone(bool b) { done_ = b; }
-private:
-	ValueSharedPtr value_;
-	bool done_;
-};
+typedef boost::shared_ptr< std::vector< ValueSharedPtr > > ValueListSharedPtr;
 
 ///////////////////////////
 // Generator base class
@@ -77,21 +63,27 @@ private:
 class Generator
 {
 public:
-	Generator(std::vector<GeneratorInput> inputs) : inputs_(inputs), canStep_(true) {}
-	GenResult Generate();
+	Generator() {}
+	virtual ValueListSharedPtr Generate() = 0;
+};
 
-protected:
-	ValueSharedPtr GenerateInput(unsigned long i);
+///////////////////////////
+// Single value generator
+///////////////////////////
+template <typename T>
+class SingleValueGenerator : public Generator
+{
+public:
+	SingleValueGenerator(T val) : val_(val) {}
 
-	// Step the generator forward and return the current ge
-	virtual void DoStep() = 0;
-	virtual GenResult DoGenerate() = 0;
+	virtual ValueListSharedPtr Generate()
+	{
+		ValueListSharedPtr result;
+		result->push_back(ValueSharedPtr(new Value(val_)));
+		return result;
+	}
 
-private:
-	std::vector<GeneratorInput> inputs_;
-	std::vector<GenResult> activeGenResults_;
-	bool canStep_;
-	bool isDone_;
+	T val_;
 };
 
 ///////////////////////////
@@ -100,9 +92,13 @@ private:
 class NoteGenerator : public Generator
 {
 public:
-	NoteGenerator(std::vector<GeneratorInput> inputs) : Generator(inputs) {}
-	virtual void DoStep() {}
-	virtual GenResult DoGenerate();
+	NoteGenerator(GeneratorSharedPtr pitchGen, GeneratorSharedPtr velocityGen, GeneratorSharedPtr lengthGen) : Generator() {}
+	virtual ValueListSharedPtr Generate();
+
+private:
+	GeneratorSharedPtr pitchGen_;
+	GeneratorSharedPtr velocityGen_;
+	GeneratorSharedPtr lengthGen_;
 };
 typedef boost::shared_ptr<NoteGenerator> NoteGenSharedPtr;
 
@@ -112,9 +108,11 @@ typedef boost::shared_ptr<NoteGenerator> NoteGenSharedPtr;
 class RestGenerator : public Generator
 {
 public:
-	RestGenerator(std::vector<GeneratorInput> inputs) : Generator(inputs) {}
-	virtual void DoStep() {}
-	virtual GenResult DoGenerate();
+	RestGenerator(GeneratorSharedPtr lengthGen) : Generator() {}
+	virtual ValueListSharedPtr Generate();
+
+private:
+	GeneratorSharedPtr lengthGen_;
 };
 typedef boost::shared_ptr<RestGenerator> RestGenSharedPtr;
 
@@ -124,33 +122,25 @@ typedef boost::shared_ptr<RestGenerator> RestGenSharedPtr;
 class PatternGenerator : public Generator
 {
 public:
-	PatternGenerator(std::vector<GeneratorInput> inputs , unsigned long repeat);
-	virtual void DoStep();
-	virtual GenResult DoGenerate();
-	//boost::shared_ptr<PatternGenerator> MakeStatic();
+	PatternGenerator(std::vector<GeneratorSharedPtr> items , unsigned long repeat) : Generator(), items_(items), repeat_(repeat) {}
+	virtual ValueListSharedPtr Generate();
 
 private:
-	static const unsigned long CURRENT_NONE = ULONG_MAX;
-	unsigned long current_;
-	unsigned long size_;
+	std::vector<GeneratorSharedPtr> items_;
 	unsigned long repeat_;
-	unsigned long numIter_;
-
-	void Reset();
 };
 typedef boost::shared_ptr<PatternGenerator> PatternGenSharedPtr;
-/*
+
 class WeightedGenerator : public Generator
 {
 public:
 	typedef std::pair<GeneratorSharedPtr, unsigned long> WeightedValue;
 
-	WeightedGenerator(const std::vector<WeightedValue>& values);
-	virtual boost::shared_ptr<Value> Generate();
+	WeightedGenerator(const std::vector<WeightedValue>& values) : values_(values) {}
+	virtual ValueListSharedPtr Generate();
 
 private:
 	std::vector<WeightedValue> values_;
-	GeneratorSharedPtr currentGen_;
 };
 typedef boost::shared_ptr<WeightedGenerator> WeightedGenPtr;
 
@@ -170,18 +160,19 @@ public:
 	};
 	typedef boost::variant<NoteOnEvent, NoteOffEvent> Event;
 
-	void Add(boost::shared_ptr<Generator> gen, Quantization quantize);
+	void Add(GeneratorSharedPtr gen, Quantization quantize);
 	void Clear();
 
 	void Update(float songTime, float elapsedTime, std::vector<Event>& events, std::vector<float>& offsets);
 
 private:
 
-	struct GeneratorInfo
+	struct Part
 	{
 		float waitTime;
+		unsigned long currentEvent;
 		Quantization quantize;
-		boost::shared_ptr<Generator> generator;
+		ValueListSharedPtr events;
 	};
 
 	struct ActiveNote
@@ -189,12 +180,12 @@ private:
 		short pitch;
 		float timeLeft;
 	};
-	std::vector<GeneratorInfo> generators_;
+	std::vector<Part> parts_;
 	std::map<short, ActiveNote> activeNotes_;
 
 	boost::mutex mtx_;
 };
-*/
+
 }
 
 #endif
