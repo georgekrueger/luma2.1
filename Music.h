@@ -55,7 +55,8 @@ typedef boost::shared_ptr<Value> ValueSharedPtr;
 
 class Generator;
 typedef boost::shared_ptr<Generator> GeneratorSharedPtr;
-typedef boost::shared_ptr< std::vector< ValueSharedPtr > > ValueListSharedPtr;
+typedef std::vector<ValueSharedPtr> ValueList;
+typedef boost::shared_ptr<ValueList> ValueListSharedPtr;
 
 ///////////////////////////
 // Generator base class
@@ -78,7 +79,7 @@ public:
 
 	virtual ValueListSharedPtr Generate()
 	{
-		ValueListSharedPtr result;
+		boost::shared_ptr<ValueList> result(new ValueList);
 		result->push_back(ValueSharedPtr(new Value(val_)));
 		return result;
 	}
@@ -92,7 +93,8 @@ public:
 class NoteGenerator : public Generator
 {
 public:
-	NoteGenerator(GeneratorSharedPtr pitchGen, GeneratorSharedPtr velocityGen, GeneratorSharedPtr lengthGen) : Generator() {}
+	NoteGenerator(GeneratorSharedPtr pitchGen, GeneratorSharedPtr velocityGen, GeneratorSharedPtr lengthGen) : Generator(),
+					pitchGen_(pitchGen), velocityGen_(velocityGen), lengthGen_(lengthGen) {}
 	virtual ValueListSharedPtr Generate();
 
 private:
@@ -108,7 +110,7 @@ typedef boost::shared_ptr<NoteGenerator> NoteGenSharedPtr;
 class RestGenerator : public Generator
 {
 public:
-	RestGenerator(GeneratorSharedPtr lengthGen) : Generator() {}
+	RestGenerator(GeneratorSharedPtr lengthGen) : Generator(), lengthGen_(lengthGen) {}
 	virtual ValueListSharedPtr Generate();
 
 private:
@@ -124,6 +126,8 @@ class PatternGenerator : public Generator
 public:
 	PatternGenerator(std::vector<GeneratorSharedPtr> items , unsigned long repeat) : Generator(), items_(items), repeat_(repeat) {}
 	virtual ValueListSharedPtr Generate();
+
+	boost::shared_ptr<PatternGenerator> MakeStatic();
 
 private:
 	std::vector<GeneratorSharedPtr> items_;
@@ -172,7 +176,7 @@ private:
 		float waitTime;
 		unsigned long currentEvent;
 		Quantization quantize;
-		ValueListSharedPtr events;
+		boost::shared_ptr<ValueList> events;
 	};
 
 	struct ActiveNote
@@ -180,10 +184,10 @@ private:
 		short pitch;
 		float timeLeft;
 	};
-	std::vector<Part> parts_;
+	std::list<Part> parts_;
 	std::map<short, ActiveNote> activeNotes_;
 
-	boost::mutex mtx_;
+	bool clearRequested_;
 };
 
 }

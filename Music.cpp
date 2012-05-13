@@ -1,6 +1,7 @@
 #include "Music.h"
 
 using namespace std;
+using namespace boost;
 
 namespace Music
 {
@@ -144,9 +145,9 @@ ValueListSharedPtr NoteGenerator::Generate()
 	note->velocity = velocity;
 	note->length = length;
 
-	ValueListSharedPtr resultPtr;
-	resultPtr->push_back(ValueSharedPtr(new Value(note)));
-	return resultPtr;
+	boost::shared_ptr<ValueList> result(new ValueList);
+	result->push_back(ValueSharedPtr(new Value(note)));
+	return result;
 }
 
 
@@ -164,14 +165,14 @@ ValueListSharedPtr RestGenerator::Generate()
 	RestSharedPtr rest = RestSharedPtr(new Rest);
 	rest->length = length;
 
-	ValueListSharedPtr resultPtr;
-	resultPtr->push_back(ValueSharedPtr(new Value(rest)));
-	return resultPtr;
+	boost::shared_ptr<ValueList> result(new ValueList);
+	result->push_back(ValueSharedPtr(new Value(rest)));
+	return result;
 }
 
 ValueListSharedPtr PatternGenerator::Generate()
 {
-	ValueListSharedPtr outResult;
+	boost::shared_ptr<ValueList> outResult(new ValueList);
 	for (unsigned long j=0; j<repeat_; j++)
 	{
 		for (unsigned long i=0; i<items_.size(); i++)
@@ -181,6 +182,39 @@ ValueListSharedPtr PatternGenerator::Generate()
 		}
 	}
 	return outResult;
+}
+
+PatternGenSharedPtr PatternGenerator::MakeStatic()
+{
+	std::vector<GeneratorSharedPtr> gens;
+
+	for (unsigned long j=0; j<repeat_; j++)
+	{
+		for (unsigned long i=0; i<items_.size(); i++)
+		{
+			ValueListSharedPtr valueList = items_[i]->Generate();
+			for (unsigned long k=0; k < valueList->size(); k++)
+			{
+				ValueSharedPtr valuePtr = valueList->at(k);
+				if (NoteSharedPtr* note = boost::get<NoteSharedPtr>(valuePtr.get())) 
+				{
+					GeneratorSharedPtr pitchGen( new SingleValueGenerator<int>((*note)->pitch) );
+					GeneratorSharedPtr velGen( new SingleValueGenerator<int>((*note)->velocity) );
+					GeneratorSharedPtr lenGen( new SingleValueGenerator<float>((*note)->length) );
+					NoteGenSharedPtr noteGen( new NoteGenerator(pitchGen, velGen, lenGen) );
+					gens.push_back(noteGen);
+				}
+				else if (RestSharedPtr* rest = boost::get<RestSharedPtr>(valuePtr.get())) {
+					GeneratorSharedPtr lenGen( new SingleValueGenerator<float>((*rest)->length) );
+					RestGenSharedPtr restGen( new RestGenerator(lenGen) );
+					gens.push_back(restGen);
+				}
+			}
+		}
+	}
+
+	PatternGenSharedPtr newPatternGen(new PatternGenerator(gens , 1));
+	return newPatternGen;
 }
 
 ValueListSharedPtr WeightedGenerator::Generate()
@@ -209,28 +243,23 @@ ValueListSharedPtr WeightedGenerator::Generate()
 	return ValueListSharedPtr();
 }
 
-Track::Track() 
+Track::Track() : clearRequested_(false)
 {
 }
 
 void Track::Add(GeneratorSharedPtr gen, Quantization quantize)
 {
-	boost::mutex::scoped_lock lock(mtx_);
-
 	Part part = {0, 0, BAR, gen->Generate()};
 	parts_.push_back(part);
 }
 
 void Track::Clear()
 {
-	boost::mutex::scoped_lock lock(mtx_);
-	parts_.clear();
+	clearRequested_ = true;
 }
 
 void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vector<float>& offsets)
 {
-	boost::mutex::scoped_lock lock(mtx_);
-
 	// update active notes
 	map<short, ActiveNote>::iterator it;
 	for (it = activeNotes_.begin(); it != activeNotes_.end(); ) {
@@ -258,7 +287,12 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 		}
 	}
 
-	for (vector<Part>::iterator i = parts_.begin(); i != parts_.end(); i++)
+	if (clearRequested_) {
+		parts_.clear();
+		clearRequested_ = false;
+	}
+
+	for (list<Part>::iterator i = parts_.begin(); i != parts_.end(); i++)
 	{
 		Part& part = *i;
 
@@ -288,9 +322,11 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 			{
 				// get the next event in the list
 				if (part.currentEvent >= part.events->size()) {
+					// TODO: remove the part
 					break;
 				}
 				ValueSharedPtr value = part.events->at(part.currentEvent);
+				part.currentEvent++;
 				if (!value) {
 					break;
 				}

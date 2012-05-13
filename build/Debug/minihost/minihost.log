@@ -1,1 +1,12 @@
-﻿  Music.cpp
+﻿  winmain.cpp
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(273): warning C4018: '<' : signed/unsigned mismatch
+c:\documents and settings\george\my documents\luma2.1\winmain.cpp(303): warning C4018: '<' : signed/unsigned mismatch
+  Music.cpp
+  JSFuncs.cpp
+c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(129): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+          c:\program files\microsoft visual studio 10.0\vc\include\stdio.h(234) : see declaration of 'fopen'
+c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(201): warning C4244: 'argument' : conversion from 'int' to 'float', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(549): warning C4244: 'initializing' : conversion from 'float' to 'int', possible loss of data
+c:\documents and settings\george\my documents\luma2.1\jsfuncs.cpp(616): warning C4244: '=' : conversion from 'double' to 'float', possible loss of data
+  Generating Code...
+  minihost.vcxproj -> C:\Documents and Settings\George\My Documents\luma2.1\build\.\Debug\minihost.exe

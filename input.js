@@ -21,7 +21,7 @@ track1 = Track("4Front Rhode.dll", 0.3);
 
 scale = "C_PENTAMIN"
 
-p2 = 
+/*p2 = 
 PatternGen( 
 	NoteGen(
 		WeightGen(
@@ -54,11 +54,12 @@ PatternGen(
 	), 
 	RestGen(2),
 	4
-);
+);*/
 
-//p4 = PatternGen(p3.MakeStatic(), 4);
+p1 = PatternGen( NoteGen(WeightGen([scale+"_4_1", 0.5], [scale+"_4_2", 0.5], [scale+"_4_3", 0.5]), 100, 1), RestGen(1), 4);
+p2 = PatternGen(p1.MakeStatic(), 16);
 
-track1.Play(PatternGen(p3.MakeStatic(), 4));
+track1.Play(p2);
 
 //p2 = PatternGen( NoteGen("CMAJ_4_1", 100, 1), RestGen(1) );
 
