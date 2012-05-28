@@ -99,15 +99,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	//// Create a window for entering script /////////////////////////////
 
 	HWND myDialog = CreateWindowEx(
-		0,WC_DIALOG,"My Window",WS_OVERLAPPEDWINDOW | WS_VISIBLE,
-		0, 0, 700, 700, NULL, NULL, hInstance, NULL
+		0,WC_DIALOG,"Code Window",WS_OVERLAPPEDWINDOW | WS_VISIBLE,
+		0, 0, 1200, 700, NULL, NULL, hInstance, NULL
 	);
 
 	//create the textbox
 	scriptBox = CreateWindowEx(
 		WS_EX_CLIENTEDGE, //special border style for textbox
 		"EDIT","",WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL,
-		0, 0, 700, 630, myDialog, (HMENU)ScriptEditBoxId, NULL, NULL
+		0, 0, 1200, 630, myDialog, (HMENU)ScriptEditBoxId, NULL, NULL
 	);
 
 	SetWindowLong(myDialog, DWL_DLGPROC, (long)myProc);
@@ -119,7 +119,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 
 	// execute script
-	const char* str = "C:\\Documents and Settings\\George\\My Documents\\luma2.1\\input.js";
+	/*const char* str = "C:\\Documents and Settings\\George\\My Documents\\luma2.1\\input.js";
 	v8::Handle<v8::String> file_name = v8::String::New(str);
     v8::Handle<v8::String> source = ReadFile(str);
     if (source.IsEmpty()) {
@@ -130,7 +130,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		if (!ExecuteString(source, filename, false, true)) {
 			cerr << "Failed to parse script" << endl;
 		}
-	}
+	}*/
 
 	// start the audio after everything has been initialized
 	StartAudio();

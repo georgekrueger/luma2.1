@@ -24,6 +24,7 @@ static Persistent<ObjectTemplate> gNoteTemplate;
 static Persistent<ObjectTemplate> gRestTemplate;
 static Persistent<ObjectTemplate> gPatternTemplate;
 static Persistent<ObjectTemplate> gWeightedGenTemplate;
+static Persistent<ObjectTemplate> gTransposeGenTemplate;
 static Persistent<ObjectTemplate> gTrackTemplate;
 v8::Handle<v8::Value> MakeNote(const v8::Arguments& args);
 Handle<ObjectTemplate> MakeNoteTemplate();
@@ -35,6 +36,8 @@ v8::Handle<v8::Value> MakeWeightedGen(const v8::Arguments& args);
 Handle<ObjectTemplate> MakeWeightedGenTemplate();
 v8::Handle<v8::Value> MakeTrack(const v8::Arguments& args);
 Handle<ObjectTemplate> MakeTrackTemplate();
+v8::Handle<v8::Value> MakeTransposeGen(const v8::Arguments& args);
+Handle<ObjectTemplate> MakeTransposeGenTemplate();
 //Handle<Value> GetPitch(Local<String> name, const AccessorInfo& info);
 
 typedef boost::variant<boost::shared_ptr<Music::Generator>, boost::shared_ptr<SongTrack> > MusicObject;
@@ -51,6 +54,7 @@ Persistent<Context> CreateV8Context()
 	global->Set(v8::String::New("RestGen"), v8::FunctionTemplate::New(MakeRest));
 	global->Set(v8::String::New("PatternGen"), v8::FunctionTemplate::New(MakePattern));
 	global->Set(v8::String::New("WeightGen"), v8::FunctionTemplate::New(MakeWeightedGen));
+	global->Set(v8::String::New("TransposeGen"), v8::FunctionTemplate::New(MakeTransposeGen));
 	global->Set(v8::String::New("Track"), v8::FunctionTemplate::New(MakeTrack));
 	
 	v8::Persistent<v8::Context> context = v8::Context::New(NULL, global);
@@ -490,7 +494,7 @@ Handle<Value> MakePattern(const Arguments& args) {
 	return handle_scope.Close(result);
 }
 
-v8::Handle<v8::Value> playPatternOnTrack(const v8::Arguments& args) 
+v8::Handle<v8::Value> addPatternToTrack(const v8::Arguments& args) 
 {
 	HandleScope scope;
 
@@ -501,6 +505,21 @@ v8::Handle<v8::Value> playPatternOnTrack(const v8::Arguments& args)
 	Music::GeneratorSharedPtr patternGen = boost::get<Music::GeneratorSharedPtr>(*holder);
 	
 	track->track->Add(patternGen, Music::BAR);
+
+	return v8::Undefined();
+}
+
+v8::Handle<v8::Value> removePatternFromTrack(const v8::Arguments& args) 
+{
+	HandleScope scope;
+
+	MusicObject* holder = ExtractObjectFromJSWrapper<MusicObject>(args.Holder());
+	boost::shared_ptr<SongTrack> track = boost::get< boost::shared_ptr<SongTrack> >(*holder);
+
+	holder = ExtractObjectFromJSWrapper<MusicObject>(args[0]->ToObject());
+	Music::GeneratorSharedPtr patternGen = boost::get<Music::GeneratorSharedPtr>(*holder);
+	
+	track->track->Remove(patternGen);
 
 	return v8::Undefined();
 }
@@ -581,6 +600,70 @@ Handle<Value> MakeWeightedGen(const Arguments& args) {
 	return handle_scope.Close(result);
 }
 
+Handle<ObjectTemplate> MakeTransposeGenTemplate() {
+	HandleScope handle_scope;
+
+	Handle<ObjectTemplate> result = ObjectTemplate::New();
+	result->SetInternalFieldCount(1);
+
+	// Add accessors
+
+	// Again, return the result through the current handle scope.
+	return handle_scope.Close(result);
+}
+
+Handle<Value> MakeTransposeGen(const Arguments& args) {
+	HandleScope handle_scope;
+
+	if (args.Length() != 2) {
+		// error
+		cerr << "Incorrect number of arguments to TransposeGen (2 required)" << endl;
+		return Handle<Value>();
+	}
+
+	Local<Value> arg = args[0];
+	if (!arg->IsObject())
+	{
+		cerr << "First argument to TransposeGen must be a generator!" << endl;
+		return Handle<Value>();
+	}
+	MusicObject* musicObj = ExtractObjectFromJSWrapper<MusicObject>(arg->ToObject());
+	Music::GeneratorSharedPtr gen = boost::get<Music::GeneratorSharedPtr>(*musicObj);
+
+	arg = args[1];
+	if (!arg->IsNumber()){
+		cerr << "Second argument to TransposeGen must be an integer!" << endl;
+		return Handle<Value>();
+	}
+	int transposeAmount = arg->Int32Value();
+
+	boost::shared_ptr<Music::TransposeGenerator> transposeGen( new Music::TransposeGenerator(gen, transposeAmount) );
+
+	// Fetch the template for creating JavaScript http request wrappers.
+	// It only has to be created once, which we do on demand.
+	if (gTransposeGenTemplate.IsEmpty()) {
+		Handle<ObjectTemplate> raw_template = MakeTransposeGenTemplate();
+		gTransposeGenTemplate = Persistent<ObjectTemplate>::New(raw_template);
+	}
+
+	// Create an empty object wrapper.
+	Handle<Object> result = gTransposeGenTemplate->NewInstance();
+
+	// Wrap the raw C++ pointer in an External so it can be referenced
+	// from within JavaScript.
+	MusicObject* obj = new MusicObject(transposeGen);
+	Handle<External> ptr = External::New(obj);
+
+	// Store the request pointer in the JavaScript wrapper.
+	result->SetInternalField(0, ptr);
+
+	// Return the result through the current handle scope.  Since each
+	// of these handles will go away when the handle scope is deleted
+	// we need to call Close to let one, the result, escape into the
+	// outer handle scope.
+	return handle_scope.Close(result);
+}
+
 Handle<ObjectTemplate> MakeTrackTemplate() {
 	HandleScope handle_scope;
 
@@ -588,7 +671,8 @@ Handle<ObjectTemplate> MakeTrackTemplate() {
 	result->SetInternalFieldCount(1);
 
 	// Add accessors for each of the fields of the request.
-	result->Set(v8::String::New("Play"), v8::FunctionTemplate::New(playPatternOnTrack));
+	result->Set(v8::String::New("Play"), v8::FunctionTemplate::New(addPatternToTrack));
+	result->Set(v8::String::New("Remove"), v8::FunctionTemplate::New(removePatternFromTrack));
 	result->Set(v8::String::New("Clear"), v8::FunctionTemplate::New(clearTrack));
 
 	// Again, return the result through the current handle scope.

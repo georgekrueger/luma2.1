@@ -243,14 +243,32 @@ ValueListSharedPtr WeightedGenerator::Generate()
 	return ValueListSharedPtr();
 }
 
-Track::Track() : clearRequested_(false)
+ValueListSharedPtr TransposeGenerator::Generate()
+{
+	boost::shared_ptr<ValueList> events = gen_->Generate();
+	for (int i=0; i<events->size(); i++) {
+		boost::shared_ptr<Value> value = events->at(i);
+		if (Music::NoteSharedPtr* note = boost::get<NoteSharedPtr>(value.get())) {
+			(*note)->pitch += transposeAmount_;
+		}
+	}
+	return events;
+}
+
+Track::Track() : clearRequested_(false), addPartRequested_(false)
 {
 }
 
 void Track::Add(GeneratorSharedPtr gen, Quantization quantize)
 {
-	Part part = {0, 0, BAR, gen->Generate()};
-	parts_.push_back(part);
+	Part part = {false, 0, 0, quantize, gen, gen->Generate()};
+	addPartRequested_ = true;
+	addPart_ = part;
+}
+
+void Track::Remove(GeneratorSharedPtr gen)
+{
+	removeRequest_ = gen;
 }
 
 void Track::Clear()
@@ -292,7 +310,25 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 		clearRequested_ = false;
 	}
 
-	for (list<Part>::iterator i = parts_.begin(); i != parts_.end(); i++)
+	// check for remove request
+	if (removeRequest_) {
+		for (list<Part>::iterator i = parts_.begin(); i != parts_.end(); ) {
+			Part& part = *i;
+			if (part.gen == removeRequest_) {
+				parts_.erase(i);
+				break;
+			}
+		}
+		removeRequest_.reset();
+	}
+
+	// check for add request
+	if (addPartRequested_) {
+		parts_.push_back(addPart_);
+		addPartRequested_ = false;
+	}
+
+	for (list<Part>::iterator i = parts_.begin(); i != parts_.end(); )
 	{
 		Part& part = *i;
 
@@ -367,6 +403,7 @@ void Track::Update(float songTime, float elapsedTime, vector<Event>& events, vec
 				}
 			}
 		}
+		i++;
 	}
 
 	// update active notes

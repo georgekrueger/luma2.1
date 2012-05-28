@@ -27,6 +27,7 @@ const int NumScales = NO_SCALE;
 
 enum Quantization
 {
+	NONE,
 	BEAT,
 	BAR
 };
@@ -148,6 +149,20 @@ private:
 };
 typedef boost::shared_ptr<WeightedGenerator> WeightedGenPtr;
 
+class TransposeGenerator : public Generator
+{
+public:
+	typedef std::pair<GeneratorSharedPtr, unsigned long> WeightedValue;
+
+	TransposeGenerator(GeneratorSharedPtr gen, int transposeAmount) : gen_(gen), transposeAmount_(transposeAmount) {}
+	virtual ValueListSharedPtr Generate();
+
+private:
+	GeneratorSharedPtr gen_;
+	int transposeAmount_;
+};
+typedef boost::shared_ptr<WeightedGenerator> WeightedGenPtr;
+
 class Track
 {
 public:
@@ -165,6 +180,7 @@ public:
 	typedef boost::variant<NoteOnEvent, NoteOffEvent> Event;
 
 	void Add(GeneratorSharedPtr gen, Quantization quantize);
+	void Remove(GeneratorSharedPtr gen);
 	void Clear();
 
 	void Update(float songTime, float elapsedTime, std::vector<Event>& events, std::vector<float>& offsets);
@@ -173,9 +189,11 @@ private:
 
 	struct Part
 	{
+		bool started;
 		float waitTime;
 		unsigned long currentEvent;
 		Quantization quantize;
+		GeneratorSharedPtr gen;
 		boost::shared_ptr<ValueList> events;
 	};
 
@@ -188,6 +206,9 @@ private:
 	std::map<short, ActiveNote> activeNotes_;
 
 	bool clearRequested_;
+	bool addPartRequested_;
+	Part addPart_;
+	GeneratorSharedPtr removeRequest_;
 };
 
 }
