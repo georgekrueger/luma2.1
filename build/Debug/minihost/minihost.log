@@ -1,4 +1,3 @@
-﻿  winmain.cpp
-c:\documents and settings\george\my documents\luma2.1\winmain.cpp(273): warning C4018: '<' : signed/unsigned mismatch
-c:\documents and settings\george\my documents\luma2.1\winmain.cpp(303): warning C4018: '<' : signed/unsigned mismatch
+﻿  Music.cpp
+c:\documents and settings\george\my documents\luma2.1\music.cpp(298): warning C4018: '<' : signed/unsigned mismatch
   minihost.vcxproj -> C:\Documents and Settings\George\My Documents\luma2.1\build\.\Debug\minihost.exe

@@ -154,11 +154,12 @@ class TransposeGenerator : public Generator
 public:
 	typedef std::pair<GeneratorSharedPtr, unsigned long> WeightedValue;
 
-	TransposeGenerator(GeneratorSharedPtr gen, int transposeAmount) : gen_(gen), transposeAmount_(transposeAmount) {}
+	TransposeGenerator(GeneratorSharedPtr gen, GeneratorSharedPtr scaleGen, int transposeAmount) : gen_(gen), scaleGen_(scaleGen), transposeAmount_(transposeAmount) {}
 	virtual ValueListSharedPtr Generate();
 
 private:
 	GeneratorSharedPtr gen_;
+	GeneratorSharedPtr scaleGen_;
 	int transposeAmount_;
 };
 typedef boost::shared_ptr<WeightedGenerator> WeightedGenPtr;

@@ -2,33 +2,18 @@
 //track1 = Track("4Front Piano.dll", "", 1.0);
 //track1 = Track("4Front Rhode.dll", "", 2.0);
 track1 = Track("Mysterion.1.0.dll", "WILD BASS", 0.7);
-track2 = Track("Mysterion.1.0.dll", "WILD BASS", 0.7);
-
 scale = "C_MAJ";
 
-track2.Remove(p1);
-p1 = 
-PatternGen(
-	PatternGen( 
-		NoteGen(WeightGen([scale+"_6_1", 1], [scale+"_6_2", 1], [scale+"_6_3", 1], [scale+"_6_4", 1], [scale+"_6_5", 1]), 80, 2), 
-		RestGen(WeightGen([2,1],[4,1])), 
-		8
-	).MakeStatic(),
-	16
-);
-track2.Play(p1);
-
-track1.Remove(p2);
 p2 = 
 PatternGen(
 	PatternGen( 
-		NoteGen(WeightGen([scale+"_3_1", 1], [scale+"_3_2", 1], [scale+"_3_3", 1], [scale+"_3_4", 1], [scale+"_3_5", 1], [scale+"_3_6", 1], [scale+"_3_7", 1]), 80, 0.20), 
+		NoteGen(WeightGen([scale+"_4_1", 1], [scale+"_4_2", 1], [scale+"_4_3", 1], [scale+"_4_4", 1], [scale+"_4_5", 1], [scale+"_4_6", 1], [scale+"_4_7", 1]), 80, 0.20), 
 		RestGen(WeightGen([2,1],[0.5,8])), 
 		4
 	).MakeStatic(),
 	2
 );
-p2 = PatternGen( p2, TransposeGen(p2, 2), TransposeGen(p2, -1),  TransposeGen(p2, 4), 4);
+p2 = PatternGen( p2, TransposeGen(p2, scale, 1), TransposeGen(p2, scale, 2),  TransposeGen(p2, scale, 3), 4);
 track1.Play(p2);
 
 /*

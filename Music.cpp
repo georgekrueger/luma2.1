@@ -106,6 +106,30 @@ void ParsePitchString(const std::string& str, Scale& scale, short& root, short& 
 	degreeStream >> degree;
 }
 
+void ParseScaleString(const std::string& str, Scale& scale, short& root)
+{
+	scale = NO_SCALE;
+	root = 60;
+
+	size_t firstSplit = str.find('_', 0);
+	if (firstSplit == string::npos)
+		return;
+	string rootStr = str.substr(0, firstSplit);
+	string scaleStr = str.substr(firstSplit+1);
+	root = GetPitchNumberFromName(rootStr);
+
+	for (int i=0; i<NumScales; i++) {
+		if (scaleStr.compare(ScaleStrings[i]) == 0) {
+			scale = (Scale)i;
+			break;
+		}
+	}
+	if (scale == NO_SCALE) {
+		cout << "Invalid scale: " << scaleStr << endl;
+		scale = MAJ;
+	}
+}
+
 ValueListSharedPtr NoteGenerator::Generate()
 {
 	ValueListSharedPtr pitchResult = pitchGen_->Generate();
@@ -245,11 +269,36 @@ ValueListSharedPtr WeightedGenerator::Generate()
 
 ValueListSharedPtr TransposeGenerator::Generate()
 {
+	// figure out transpose amount based on scale and input number
+	ValueListSharedPtr pitchResult = scaleGen_->Generate();
+	std::string* pitchStr = boost::get<std::string>(pitchResult->at(0).get());
+	if (!pitchStr) {
+		cerr << "Failed to parse scale string for TransposeGen" << endl;
+		return ValueListSharedPtr();
+	}
+	Scale scale;
+	short root;
+	ParseScaleString(*pitchStr, scale, root);
+	const ScaleInfo* info = &scaleInfo[scale];
+	int octave = transposeAmount_ / info->numIntervals;
+	int correctedTransposeAmount = transposeAmount_;
+	if (transposeAmount_ < 0) {
+		correctedTransposeAmount = info->numIntervals - abs(transposeAmount_) % info->numIntervals;
+	}
+	int degree = info->intervals[correctedTransposeAmount % info->numIntervals];
+	int finalTranspose = 12 * octave;
+	if (transposeAmount_ >= 0) {
+		finalTranspose += degree;
+	}
+	else {
+		finalTranspose -= degree;
+	}
+
 	boost::shared_ptr<ValueList> events = gen_->Generate();
 	for (int i=0; i<events->size(); i++) {
 		boost::shared_ptr<Value> value = events->at(i);
 		if (Music::NoteSharedPtr* note = boost::get<NoteSharedPtr>(value.get())) {
-			(*note)->pitch += transposeAmount_;
+			(*note)->pitch += finalTranspose;
 		}
 	}
 	return events;
